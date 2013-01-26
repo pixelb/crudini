@@ -1,0 +1,314 @@
+#!/usr/bin/python
+# vim:fileencoding=utf8
+#
+# Copyright (C) 2013, Pádraig Brady <P@draigBrady.com>
+#
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GPLv2, the GNU General Public License version 2, as
+# published by the Free Software Foundation. http://gnu.org/licenses/gpl.html
+
+import sys
+import ConfigParser
+import getopt
+import iniparse
+import pipes
+import string
+from cStringIO import StringIO
+
+try:
+    iniparse.DEFAULTSECT
+except AttributeError:
+    iniparse.DEFAULTSECT = 'DEFAULT'
+
+def usage(exitval=0):
+    cmd = sys.argv[0]
+    sys.stderr.write(
+      cmd + " --set [--existing] config_file section [param] [value]\n" +
+      cmd + " --get [--format=sh|ini] config_file [section] [param]\n" +
+      cmd + " --del [--existing] config_file section [param]\n" +
+      cmd + " --merge [--existing] config_file [section]\n"
+    )
+    sys.exit(exitval)
+
+def error(message=None):
+    if message:
+        sys.stderr.write(message+'\n')
+
+_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
+def valid_sh_identifier(i):
+    if i[0] in string.digits:
+        return False
+    for c in i:
+        if c not in _sh_safe_id_chars:
+            return False
+    return True
+
+def print_section_header(section):
+    if fmt == 'ini':
+        print "[%s]" % section
+    else:
+        print section
+
+def print_name_value(name, value):
+    if fmt == 'sh':
+        # Note we provide validation of the output indentifiers
+        # as it's dangerous to leave validation to shell.
+        # consider for example doing eval on this in shell:
+        #   rm -Rf /;oops=val
+        if not valid_sh_identifier(name):
+            error('Inavlid sh identifier: %s' % name)
+            sys.exit(1)
+        sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
+    elif fmt == 'ini':
+        print name, '=', value.replace('\n','\n ')
+    else:
+        print name or value
+
+mode = fmt = update = cfgfile = section = param = value = None
+
+def parse_options():
+    try:
+        long_options = ['set', 'del', 'get', 'merge', 'existing', 'format=',
+                        'help', 'version']
+        opts, args = getopt.getopt(sys.argv[1:], '', long_options)
+    except getopt.GetoptError, e:
+        error(str(e))
+        usage(1)
+
+    global mode, fmt, update, cfgfile, section, param, value
+
+    for o, a in opts:
+        if o in ('--help',):
+            usage(0)
+        elif o in ('--version',):
+            print 'crudini 0.1'
+            sys.exit(0)
+        elif o in ('--set', '--del', '--get', '--merge'):
+            if mode:
+                error('Only one of --set|--del|--get|--merge can be specified')
+                usage(1)
+            mode = o
+        elif o in ('--format',):
+            fmt = a
+            if fmt not in ('sh','ini'):
+                error('--format not recognized: %s' % fmt)
+                usage(1)
+        elif o in ('--existing',):
+            update = True
+
+    if not mode:
+        error('One of --set|--del|--get|--merge must be specified')
+        usage(1)
+
+    try:
+        cfgfile = args[0]
+        section = args[1]
+        param = args[2]
+        value = args[3]
+    except IndexError:
+        pass
+
+    if cfgfile is None:
+        usage(1)
+    if section is None and mode in ('--del', '--set'):
+        usage(1)
+    if param is not None and mode in ('--merge'):
+        usage(1)
+    if value is not None and mode not in ('--set'):
+        error('A value should not be specified with %s' % mode)
+        usage(1)
+
+    if mode == '--merge' and fmt == 'sh':
+        # I'm not sure how useful is is to support this.
+        # printenv will already generate a mostly compat ini format.
+        # If you want to also include non exported vars (from `set`),
+        # then there is a format change.
+        error('sh format input is not supported at present')
+        sys.exit(1)
+
+parse_options()
+
+section_explicit_default = False
+if section == '':
+    section = iniparse.DEFAULTSECT
+elif section == iniparse.DEFAULTSECT:
+    section_explicit_default = True
+
+# XXX: should be done in iniparse.  Used to
+# add support for ini files without a section
+class add_default_section():
+    def __init__(self, fp):
+        self.fp = fp
+        self.first = True
+
+    def readline(self):
+        if self.first:
+            self.first = False
+            return '[%s]' % iniparse.DEFAULTSECT
+        else:
+            return self.fp.readline()
+
+stdin = ""
+
+def _parse_file(filename, add_default=False):
+    # Note we use RawConfigParser rather than SafeConfigParser
+    # to avoid unwanted variable interpolation.
+    # Note iniparse doesn't currently support allow_no_value=True.
+    try:
+        if filename == '-':
+            fp = StringIO(stdin)
+        else:
+            fp = open(filename)
+        if add_default:
+            fp = add_default_section(fp)
+        conf = iniparse.RawConfigParser()
+        conf.readfp(fp)
+        return conf
+    except IOError as e:
+        error(str(e))
+        sys.exit(1)
+
+
+def parse_file(filename):
+    global added_default_section
+    added_default_section = False
+
+    try:
+        conf = _parse_file(filename)
+
+        if not conf.items(iniparse.DEFAULTSECT):
+            # reparse with inserted [DEFAULT] to be able to add global opts etc.
+            # XXX: We don't distinguish the edge case where
+            # there is just [DEFAULT] in a file with no name=values.
+            # In that case a redundant [DEFAULT] will be output.
+            conf = _parse_file(filename, add_default=True)
+            added_default_section = True
+
+    except ConfigParser.MissingSectionHeaderError:
+        conf = _parse_file(filename, add_default=True)
+        added_default_section = True
+    except ConfigParser.ParsingError as e:
+        error(str(e))
+        sys.exit(1)
+
+    return conf
+
+added_default_section = False
+
+if mode == '--merge':
+    stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
+    mconf = parse_file('-')
+
+madded_default_section = added_default_section
+conf = parse_file(cfgfile)
+# Take the [DEFAULT] header from the input if present
+if mode == '--merge' and not update \
+   and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
+    added_default_section = madded_default_section
+
+def set_name_value(section, param, value):
+    if update:
+        if param is None:
+            _sec = section == iniparse.DEFAULTSECT or conf.has_section(section)
+            if not _sec:
+                raise ConfigParser.NoSectionError(section)
+        else:
+           _val = conf.get(section, param)
+    elif section != iniparse.DEFAULTSECT and not conf.has_section(section):
+        conf.add_section(section)
+
+    if param is not None:
+        if value is None:
+            value = ''
+        conf.set(section, param, value)
+
+try:
+    if mode == '--set':
+        set_name_value(section, param, value)
+    elif mode == '--merge':
+        for msection in [iniparse.DEFAULTSECT] + mconf.sections():
+            if msection == iniparse.DEFAULTSECT:
+                defaults_to_strip = {}
+            else:
+                defaults_to_strip = mconf.defaults()
+            items = mconf.items(msection)
+            set_param = False
+            for item in items:
+                # XXX: Note this doesn't update an item in section
+                # if matching value also in default (global) section.
+                if defaults_to_strip.get(item[0]) != item[1]:
+                    ignore_errs = (ConfigParser.NoOptionError,)
+                    if section is not None:
+                        msection = section
+                    else:
+                        ignore_errs += (ConfigParser.NoSectionError,)
+                    try:
+                        set_param = True
+                        set_name_value(msection, item[0], item[1])
+                    except ignore_errs:
+                        pass
+            # For empty sections ensure the section header is added
+            if not set_param and section is None:
+                set_name_value(msection, None, None)
+    elif mode == '--del':
+        if param is None:
+            if section == iniparse.DEFAULTSECT:
+                for name in conf.defaults():
+                    conf.remove_option(iniparse.DEFAULTSECT, name)
+            else:
+                if not conf.remove_section(section) and update:
+                    raise ConfigParser.NoSectionError(section)
+        elif value is None:
+            if not conf.remove_option(section, param) and update:
+                raise ConfigParser.NoOptionError(section, param)
+    elif mode == '--get':
+        if section is None:
+            if conf.defaults():
+                print_section_header(iniparse.DEFAULTSECT)
+            for item in conf.sections():
+                print_section_header(item)
+        elif param is None:
+            if fmt == 'ini':
+                print_section_header(section)
+            if section == iniparse.DEFAULTSECT:
+                defaults_to_strip = {}
+            else:
+                defaults_to_strip = conf.defaults()
+            for item in conf.items(section):
+                # XXX: Note this strips an item from section
+                # if matching value also in default (global) section.
+                if defaults_to_strip.get(item[0]) != item[1]:
+                    if fmt:
+                        val = item[1]
+                    else:
+                        val = None
+                    print_name_value(item[0], val)
+        else:
+            val = conf.get(section, param)
+            if fmt:
+                name = param
+            else:
+                name = None
+            print_name_value(name, val)
+except ConfigParser.NoSectionError:
+    error('Section not found: %s' % section)
+    sys.exit(1)
+except ConfigParser.NoOptionError:
+    error('Parameter not found: %s' % param)
+    sys.exit(1)
+
+if mode != '--get':
+    with open(cfgfile, 'w') as f:
+        # XXX: Ideally we should just do conf.write(f) here,
+        # but to avoid iniparse issues, we massage the data a little here
+        str_data = str(conf.data)
+        if len(str_data) and str_data[-1] != '\n':
+            str_data += '\n'
+
+        if (
+            (added_default_section and not (section_explicit_default and mode in ('--set', '--merge')))
+            or (mode == '--del' and section == iniparse.DEFAULTSECT and param is None)
+           ):
+            str_data = str_data.replace('[%s]\n' % iniparse.DEFAULTSECT, '', 1)
+
+        f.write(str_data)

@@ -1,0 +1,8 @@
+support variables without =
+
+support --set,--merge of #commented name=value
+with operation configured with --comment = {always,unchanged}
+
+support multiple files passed to --merge
+
+possibly support --format=sh|json with --mergea
