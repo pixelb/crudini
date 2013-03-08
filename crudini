@@ -81,7 +81,7 @@ def parse_options():
         if o in ('--help',):
             usage(0)
         elif o in ('--version',):
-            print 'crudini 0.1'
+            print 'crudini 0.3'
             sys.exit(0)
         elif o in ('--set', '--del', '--get', '--merge'):
             if mode:
