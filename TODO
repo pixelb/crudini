@@ -5,4 +5,11 @@ with operation configured with --comment = {always,unchanged}
 
 support multiple files passed to --merge
 
-possibly support --format=sh|json with --mergea
+possibly support --format=sh|json with --merge
+
+possibly support a --sort option
+Would not output comments.
+http://skvidal.wordpress.com/2013/03/22/diffing-two-ini-files/
+
+possibly support --lower to output normalised case for
+--get and --sort
