@@ -2,7 +2,7 @@ A utility for manipulating ini files
 
 
 crudini --set [--existing] config_file section [param] [value]
-        --get [--format=sh|ini] config_file [section] [param]
+        --get [--format=sh|ini|lines] config_file [section] [param]
         --del [--existing] config_file section [param]
         --merge [--existing] config_file [section]
 
