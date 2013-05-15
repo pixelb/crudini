@@ -1,0 +1,20 @@
+[ section1 ] dup1 = val1
+[ section1 ] dup2 = val2
+[ section1 ] nospace = val
+[ section1 ] multiline = with\nleading\nspace
+[ section1 ] nmultiline = not supported with\
+[ section1 ] comment_after1 = val
+[ section1 ] comment_after2 = val;not a comment
+[ section1 ] comment_after3 = val #not a comment
+[ section1 ] escaped_not_processed = test \nescape
+[ section1 ] colon = val
+[ section1 ] double_quotes = "not removed"
+[ section1 ] single_quotes = 'not removed'
+[ section1 ] spaces_stripped = val
+[ section1 ] internal_not_stripped = v  al
+[ section1 ] notempty1 = ;comment=val
+[ section1 ] empty
+[ section1 ] python_interpolate = %(dup1)s/blah
+[ section1 ] interpolate2 = ${dup1}/blah
+[ section1 ] caps = not significant
+[ section1 ] combine = sections

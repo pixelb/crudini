@@ -38,3 +38,7 @@ echo name="$name" | crudini --merge config_file section
 
 # merge an ini file from another ini
 crudini --merge config_file < another.ini
+
+# compare two ini files using standard UNIX text processing
+diff <(crudini --get --format=lines file1.ini|sort) \
+     <(crudini --get --format=lines file2.ini|sort)

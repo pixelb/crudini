@@ -24,7 +24,7 @@ def usage(exitval=0):
     cmd = sys.argv[0]
     sys.stderr.write(
       cmd + " --set [--existing] config_file section [param] [value]\n" +
-      cmd + " --get [--format=sh|ini] config_file [section] [param]\n" +
+      cmd + " --get [--format=sh|ini|lines] config_file [section] [param]\n" +
       cmd + " --del [--existing] config_file section [param]\n" +
       cmd + " --merge [--existing] config_file [section]\n"
     )
@@ -49,8 +49,20 @@ def print_section_header(section):
     else:
         print section
 
-def print_name_value(name, value):
-    if fmt == 'sh':
+def print_name_value(name, value, section=None):
+    if fmt == 'lines':
+        # Both unambiguous and easily parseable by shell. Caveat is
+        # that sections and values with spaces are awkward to split in shell
+        if section:
+            line = '[ %s ]' % section
+            if name:
+                line += ' '
+        if name:
+            line += '%s' % name
+        if value:
+            line += ' = %s' % value.replace('\n','\\n')
+        print line
+    elif fmt == 'sh':
         # Note we provide validation of the output indentifiers
         # as it's dangerous to leave validation to shell.
         # consider for example doing eval on this in shell:
@@ -90,7 +102,7 @@ def parse_options():
             mode = o
         elif o in ('--format',):
             fmt = a
-            if fmt not in ('sh','ini'):
+            if fmt not in ('sh','ini','lines'):
                 error('--format not recognized: %s' % fmt)
                 usage(1)
         elif o in ('--existing',):
@@ -112,9 +124,9 @@ def parse_options():
         usage(1)
     if section is None and mode in ('--del', '--set'):
         usage(1)
-    if param is not None and mode in ('--merge'):
+    if param is not None and mode in ('--merge',):
         usage(1)
-    if value is not None and mode not in ('--set'):
+    if value is not None and mode not in ('--set',):
         error('A value should not be specified with %s' % mode)
         usage(1)
 
@@ -261,7 +273,7 @@ try:
         elif value is None:
             if not conf.remove_option(section, param) and update:
                 raise ConfigParser.NoOptionError(section, param)
-    elif mode == '--get':
+    elif mode == '--get' and fmt != 'lines':
         if section is None:
             if conf.defaults():
                 print_section_header(iniparse.DEFAULTSECT)
@@ -290,6 +302,33 @@ try:
             else:
                 name = None
             print_name_value(name, val)
+    elif mode == '--get' and fmt == 'lines':
+        if section is None:
+            sections = conf.sections()
+            if conf.defaults():
+                sections.insert(0, iniparse.DEFAULTSECT)
+        else:
+            sections = (section,)
+        if param is not None:
+            val = conf.get(section, param)
+            print_name_value(param, val, section)
+        else:
+            for section in sections:
+                if section == iniparse.DEFAULTSECT:
+                    defaults_to_strip = {}
+                else:
+                    defaults_to_strip = conf.defaults()
+                items = False
+                for item in conf.items(section):
+                    # XXX: Note this strips an item from section
+                    # if matching value also in default (global) section.
+                    if defaults_to_strip.get(item[0]) != item[1]:
+                        val = item[1]
+                        print_name_value(item[0], val, section)
+                        items = True
+                if not items:
+                    print_name_value(None, None, section)
+
 except ConfigParser.NoSectionError:
     error('Section not found: %s' % section)
     sys.exit(1)

@@ -144,7 +144,7 @@ test "$(crudini --get example.ini section1 cAps)" = 'not significant' && ok || f
 
 # 20 get sections
 crudini --get example.ini > test.ini
-printf '%s\n' DEFAULT section1 non-sh-compat > good.ini
+printf '%s\n' DEFAULT section1 'empty section' non-sh-compat > good.ini
 diff -u test.ini good.ini && ok || fail
 
 # 21 get implicit default section
@@ -330,3 +330,13 @@ for sec in '' '[DEFAULT]'; do
   :> good.ini
   diff -u test.ini good.ini && ok || fail
 done
+
+# --get-lines --------------------------------------------
+
+# 50
+crudini --get --format=lines example.ini section1 > test.ini || fail
+diff -u test.ini section1.lines && ok || fail
+
+# 51
+crudini --get --format=lines example.ini > test.ini || fail
+diff -u test.ini example.lines && ok || fail
