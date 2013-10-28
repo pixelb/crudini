@@ -7,5 +7,10 @@ support multiple files passed to --merge
 
 possibly support --format=sh|json with --merge
 
+possible support multiple duplicate names per section
+to support MultiStrOpt in openstack config files file example
+
 possibly support --lower to output normalised case for
 --get and --sort
+
+support python3
