@@ -163,6 +163,24 @@ class add_default_section():
 
 stdin = ""
 
+def has_default_section(filename):
+    try:
+        if filename == '-':
+            fp = StringIO(stdin)
+        else:
+            fp = open(filename)
+
+        for line in fp:
+            if line == '[%s]\n' % iniparse.DEFAULTSECT:
+                return True
+
+        return False
+
+    except IOError as e:
+        error(str(e))
+        sys.exit(1)
+
+
 def _parse_file(filename, add_default=False):
     # Note we use RawConfigParser rather than SafeConfigParser
     # to avoid unwanted variable interpolation.
@@ -190,12 +208,12 @@ def parse_file(filename):
         conf = _parse_file(filename)
 
         if not conf.items(iniparse.DEFAULTSECT):
-            # reparse with inserted [DEFAULT] to be able to add global opts etc.
-            # XXX: We don't distinguish the edge case where
-            # there is just [DEFAULT] in a file with no name=values.
-            # In that case a redundant [DEFAULT] will be output.
-            conf = _parse_file(filename, add_default=True)
-            added_default_section = True
+            # Check if there is just [DEFAULT] in a file with no
+            # name=values to avoid adding a duplicate section.
+            if not has_default_section(filename):
+                # reparse with inserted [DEFAULT] to be able to add global opts etc.
+                conf = _parse_file(filename, add_default=True)
+                added_default_section = True
 
     except ConfigParser.MissingSectionHeaderError:
         conf = _parse_file(filename, add_default=True)

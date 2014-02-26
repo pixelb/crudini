@@ -96,10 +96,10 @@ crudini --set test.ini '' global val
 printf '%s\n' 'global = val' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
-# 12 XXX: Extraneous [DEFAULT] output in this edge case
+# 12 Ensure '[DEFAULT]' is not duplicated
 printf '%s\n' '[DEFAULT]' > test.ini
 crudini --set test.ini DEFAULT global val
-printf '%s\n' '[DEFAULT]' '[DEFAULT]' 'global = val' > good.ini
+printf '%s\n' '[DEFAULT]' 'global = val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 # 13 Maintain colon separation
