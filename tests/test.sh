@@ -123,6 +123,13 @@ crudini --set test.ini '' name
 printf '%s\n' 'name=' > good.ini
 diff -u test.ini good.ini && ok || fail
 
+# value added to existing value
+printf '%s\n' 'name=val' > test.ini
+crudini --set --add test.ini '' name val1
+printf '%s\n' 'name=val, val1' > good.ini 
+diff -u test.ini good.ini && ok || fail
+
+
 # --existing
 :> test.ini
 crudini --set test.ini '' gname val
