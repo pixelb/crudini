@@ -24,7 +24,7 @@ except AttributeError:
 def usage(exitval=0):
     cmd = sys.argv[0]
     sys.stderr.write(
-      cmd + " --set [--existing] config_file section [param] [value]\n" +
+      cmd + " --set [--existing] [--add] config_file section [param] [value]\n" +
       cmd + " --get [--format=sh|ini|lines] config_file [section] [param]\n" +
       cmd + " --del [--existing] config_file section [param]\n" +
       cmd + " --merge [--existing] config_file [section]\n"
@@ -77,18 +77,18 @@ def print_name_value(name, value, section=None):
     else:
         print name or value
 
-mode = fmt = update = cfgfile = section = param = value = None
+mode = fmt = update = add = cfgfile = section = param = value = None
 
 def parse_options():
     try:
-        long_options = ['set', 'del', 'get', 'merge', 'existing', 'format=',
-                        'help', 'version']
+        long_options = ['set', 'del', 'get', 'merge', 'existing', 'format=', 
+                        'add', 'help', 'version']
         opts, args = getopt.getopt(sys.argv[1:], '', long_options)
     except getopt.GetoptError, e:
         error(str(e))
         usage(1)
 
-    global mode, fmt, update, cfgfile, section, param, value
+    global mode, fmt, update, cfgfile, section, param, value, add
 
     for o, a in opts:
         if o in ('--help',):
@@ -108,6 +108,8 @@ def parse_options():
                 usage(1)
         elif o in ('--existing',):
             update = True
+        elif o in ('--add',):
+            add = True
 
     if not mode:
         error('One of --set|--del|--get|--merge must be specified')
@@ -238,6 +240,14 @@ if mode == '--merge' and not update \
     added_default_section = madded_default_section
 
 def set_name_value(section, param, value):
+    if add:
+        if param is None:
+            _sec = section == iniparse.DEFAULTSECT or conf.has_section(section)
+            if not _sec:
+                raise ConfigParser.NoSectionError(section)
+        else:
+           _val = conf.get(section, param)
+           value = _val + ", " + value
     if update:
         if param is None:
             _sec = section == iniparse.DEFAULTSECT or conf.has_section(section)
