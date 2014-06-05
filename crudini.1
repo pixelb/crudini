@@ -1,0 +1,59 @@
+.TH CRUDINI "1" "November 2013" "crudini 0.3" "User Commands"
+.SH NAME
+crudini \- A utility for manipulating ini files
+.SH SYNOPSIS
+crudini \fB\-\-set\fR [\-\-existing] config_file section [param] [value]
+.br
+crudini \fB\-\-get\fR [\-\-format=sh|ini] config_file [section] [param]
+.br
+crudini \fB\-\-del\fR [\-\-existing] config_file section [param]
+.br
+crudini \fB\-\-merge\fR [\-\-existing] config_file [section]
+
+.SH EXAMPLES
+
+.SS "Add/Update a var"
+.IP
+crudini \-\-set config_file section parameter value
+
+.SS "Update an existing var"
+.IP
+crudini \-\-set \-\-existing config_file section parameter value
+
+.SS "Delete a var"
+.IP
+crudini \-\-del config_file section parameter
+
+.SS "Delete a section"
+.IP
+crudini \-\-del config_file section
+
+.SS "Output a value"
+.IP
+crudini \-\-get config_file section parameter
+
+.SS "Output a global value not in a section"
+.IP
+crudini \-\-get config_file '' parameter
+
+.SS "Output a section"
+.IP
+crudini \-\-get config_file section
+
+.SS "Output a section, parseable by shell"
+.IP
+eval $(crudini \-\-get \-\-format=sh config_file section)
+
+.SS "Update an ini file from shell variable(s)"
+.IP
+echo name="$name" | crudini \-\-merge config_file section
+
+.SS "Merge an ini file from another ini"
+.IP
+crudini \-\-merge config_file < another.ini
+
+.SH AUTHOR
+
+This manual page was written by Zev Benjamin <zev@zulip.com> for the
+Debian GNU/Linux system (but may be used by others).  Its contents
+are based on the crudini documentation.
