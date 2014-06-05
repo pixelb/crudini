@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# crudini --help generator for help2man and README
+
+if [ "$1" = '--help' ]; then
+  printf '%s' 'crudini - '
+  ./crudini --help
+  echo
+  cat EXAMPLES
+elif [ "$1" = '--version' ]; then
+  ./crudini --version
+fi
+

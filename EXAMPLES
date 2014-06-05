@@ -1,17 +1,3 @@
-crudini - A utility for manipulating ini files
-
-Usage: ./crudini --set [OPTION]...   config_file section   [param] [value]
-  or:  ./crudini --get [OPTION]...   config_file [section] [param]
-  or:  ./crudini --del [OPTION]...   config_file section   [param]
-  or:  ./crudini --merge [OPTION]... config_file [section]
-
-Options:
-
-  --existing       For --set, --del and --merge fail if the
-                     section or param is not present
-  --format=FMT     For --get, select the output FMT.
-                     Formats are sh,ini,lines
-
 Examples:
 
 # Add/Update a var

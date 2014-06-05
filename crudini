@@ -32,17 +32,17 @@ def usage(exitval=0):
     output.write(
       "A utility for manipulating ini files\n"
       "\n" +
-      cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
-      cmd + " --get [OPTION]...   config_file [section] [param]\n" +
-      cmd + " --del [OPTION]...   config_file section   [param]\n" +
-      cmd + " --merge [OPTION]... config_file [section]\n" +
+      "Usage: " + cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
+      "  or:  " + cmd + " --get [OPTION]...   config_file [section] [param]\n" +
+      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param]\n" +
+      "  or:  " + cmd + " --merge [OPTION]... config_file [section]\n" +
       "\n"
       "Options:\n"
       "\n"
-      " --existing        For --set, --del and --merge fail if the\n"
-      "                    section or param is not present\n"
-      " --format=FMT      For --get, select the output FMT.\n"
-      "                    Formats are sh,ini,lines\n"
+      "  --existing       For --set, --del and --merge fail if the\n"
+      "                     section or param is not present\n"
+      "  --format=FMT     For --get, select the output FMT.\n"
+      "                     Formats are sh,ini,lines\n"
     )
     sys.exit(exitval)
 
