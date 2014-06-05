@@ -28,7 +28,8 @@ except AttributeError:
 
 def usage(exitval=0):
     cmd = sys.argv[0]
-    sys.stderr.write(
+    output = sys.stderr if exitval else sys.stdout
+    output.write(
       "A utility for manipulating ini files\n"
       "\n" +
       cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
