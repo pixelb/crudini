@@ -29,10 +29,19 @@ except AttributeError:
 def usage(exitval=0):
     cmd = sys.argv[0]
     sys.stderr.write(
-      cmd + " --set [--existing] config_file section [param] [value]\n" +
-      cmd + " --get [--format=sh|ini|lines] config_file [section] [param]\n" +
-      cmd + " --del [--existing] config_file section [param]\n" +
-      cmd + " --merge [--existing] config_file [section]\n"
+      "A utility for manipulating ini files\n"
+      "\n" +
+      cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
+      cmd + " --get [OPTION]...   config_file [section] [param]\n" +
+      cmd + " --del [OPTION]...   config_file section   [param]\n" +
+      cmd + " --merge [OPTION]... config_file [section]\n" +
+      "\n"
+      "Options:\n"
+      "\n"
+      " --existing        For --set, --del and --merge fail if the\n"
+      "                    section or param is not present\n"
+      " --format=FMT      For --get, select the output FMT.\n"
+      "                    Formats are sh,ini,lines\n"
     )
     sys.exit(exitval)
 
