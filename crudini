@@ -46,6 +46,7 @@ def usage(exitval=0):
       "  --rewrite        Truncate and write files in place.\n"
       "                     This is not atomic but has less restrictions\n"
       "                     than the default replacement method.\n"
+      "  --output=FILE    Write output to FILE instead. '-' means stdout\n"
     )
     sys.exit(exitval)
 
@@ -95,18 +96,18 @@ def print_name_value(name, value, section=None):
     else:
         print name or value
 
-mode = fmt = update = rewrite = cfgfile = section = param = value = None
+mode = fmt = update = rewrite = cfgfile = output = section = param = value = None
 
 def parse_options():
     try:
         long_options = ['set', 'del', 'get', 'merge', 'existing', 'format=',
-                        'rewrite', 'help', 'version']
+                        'output=', 'rewrite', 'help', 'version']
         opts, args = getopt.getopt(sys.argv[1:], '', long_options)
     except getopt.GetoptError, e:
         error(str(e))
         usage(1)
 
-    global mode, fmt, update, rewrite, cfgfile, section, param, value
+    global mode, fmt, update, rewrite, cfgfile, output, section, param, value
 
     for o, a in opts:
         if o in ('--help',):
@@ -128,6 +129,8 @@ def parse_options():
             update = True
         elif o in ('--rewrite',):
             rewrite = True
+        elif o in ('--output',):
+            output = a
 
     if not mode:
         error('One of --set|--del|--get|--merge must be specified')
@@ -140,6 +143,9 @@ def parse_options():
         value = args[3]
     except IndexError:
         pass
+
+    if not output:
+        output = cfgfile
 
     if cfgfile is None:
         usage(1)
@@ -464,8 +470,11 @@ if mode != '--get':
         str_data = str_data.replace('[%s]\n' % iniparse.DEFAULTSECT, '', 1)
 
     try:
-        file_edit = file_rewrite if rewrite else file_replace
-        file_edit(cfgfile, str_data)
+        if output == '-':
+            sys.stdout.write(str_data)
+        else:
+            file_edit = file_rewrite if rewrite else file_replace
+            file_edit(output, str_data)
     except EnvironmentError as e:
         error(str(e))
         sys.exit(1)
