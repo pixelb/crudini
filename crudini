@@ -27,7 +27,7 @@ except AttributeError:
     iniparse.DEFAULTSECT = 'DEFAULT'
 
 def usage(exitval=0):
-    cmd = sys.argv[0]
+    cmd = os.path.basename(sys.argv[0])
     output = sys.stderr if exitval else sys.stdout
     output.write(
       "A utility for manipulating ini files\n"
