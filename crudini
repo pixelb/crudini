@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # vim:fileencoding=utf8
 #
-# Copyright (C) 2013, Pádraig Brady <P@draigBrady.com>
+# Copyright (C) 2014, Pádraig Brady <P@draigBrady.com>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GPLv2, the GNU General Public License version 2, as
@@ -20,6 +20,15 @@ import shutil
 import string
 import tempfile
 from cStringIO import StringIO
+import time
+
+# The following exits cleanly on Ctrl-C,
+# while treating other exceptions as before.
+def cli_exception(type, value, tb):
+    if not issubclass(type, KeyboardInterrupt):
+        sys.__excepthook__(type, value, tb)
+if sys.stdin.isatty():
+    sys.excepthook=cli_exception
 
 try:
     iniparse.DEFAULTSECT
@@ -43,7 +52,7 @@ def usage(exitval=0):
       "                     section or param is not present\n"
       "  --format=FMT     For --get, select the output FMT.\n"
       "                     Formats are sh,ini,lines\n"
-      "  --rewrite        Truncate and write files in place.\n"
+      "  --inplace        Lock and write files in place.\n"
       "                     This is not atomic but has less restrictions\n"
       "                     than the default replacement method.\n"
       "  --output=FILE    Write output to FILE instead. '-' means stdout\n"
@@ -96,18 +105,18 @@ def print_name_value(name, value, section=None):
     else:
         print name or value
 
-mode = fmt = update = rewrite = cfgfile = output = section = param = value = None
+mode = fmt = update = inplace = cfgfile = output = section = param = value = None
 
 def parse_options():
     try:
         long_options = ['set', 'del', 'get', 'merge', 'existing', 'format=',
-                        'output=', 'rewrite', 'help', 'version']
+                        'output=', 'inplace', 'help', 'version']
         opts, args = getopt.getopt(sys.argv[1:], '', long_options)
     except getopt.GetoptError, e:
         error(str(e))
         usage(1)
 
-    global mode, fmt, update, rewrite, cfgfile, output, section, param, value
+    global mode, fmt, update, inplace, cfgfile, output, section, param, value
 
     for o, a in opts:
         if o in ('--help',):
@@ -127,8 +136,8 @@ def parse_options():
                 usage(1)
         elif o in ('--existing',):
             update = True
-        elif o in ('--rewrite',):
-            rewrite = True
+        elif o in ('--inplace',):
+            inplace = True
         elif o in ('--output',):
             output = a
 
@@ -187,14 +196,17 @@ class add_default_section():
         else:
             return self.fp.readline()
 
+    def seek(self, *args):
+        self.fp.seek(*args)
+
 stdin = ""
 
-def has_default_section(filename):
+def has_default_section(locked_file):
     try:
-        if filename == '-':
+        if locked_file is None:
             fp = StringIO(stdin)
         else:
-            fp = open(filename)
+            fp = locked_file.fp
 
         for line in fp:
             if line.startswith('[%s]' % iniparse.DEFAULTSECT):
@@ -205,7 +217,139 @@ def has_default_section(filename):
     except IOError as e:
         error(str(e))
         sys.exit(1)
+    finally:
+        fp.seek(0)
 
+def delete_if_exists(path):
+    """Delete a file, but ignore file not found error.
+    """
+    try:
+        os.unlink(path)
+    except EnvironmentError as e:
+        if e.errno != errno.ENOENT:
+            print str(e)
+            raise
+
+class FileLock(object):
+    """Advisory file based locking.  This should be reasonably cross platform
+       and also work over distributed file systems."""
+    def __init__(self, exclusive=False, separated=False):
+        # In inplace mode, the process must be careful to not close this fp
+        # until finished, nor open and close another fp associated with the file.
+        self.fp = None
+        self.locked = False
+        self.die = delete_if_exists # reference so available at teardown
+
+        # Note we can't combine these methods to provide separated locks
+        # which are immune to stale file deadlock, as once the separated
+        # file is unlinked or renamed, you introduce a race with 3 or more users
+        # if there is an associated fcntl lock.
+
+        if separated:
+            import signal
+            def cleanup(signum, frame):
+                sys.exit(1)
+            if hasattr(signal, "SIGTERM"):
+                signal.signal(signal.SIGTERM, cleanup)
+
+            def lock(self):
+                while True:
+                    try:
+                        os.open(self.lockpath, os.O_EXCL | os.O_CREAT, 0)
+                    except EnvironmentError as e:
+                        if e.errno == errno.EEXIST:
+                            time.sleep(1)
+                        else:
+                            raise
+                    else:
+                        self.locked = True
+                        break
+
+            def unlock(self):
+                if self.locked: # Don't clobber other locks on ctrl-c etc.
+                    self.die (self.lockpath)
+                self.locked = False
+
+        elif os.name == 'nt':
+            import msvcrt
+            def lock(self):
+                msvcrt.locking(self.fp, msvcrt.LK_LOCK, 1)
+                self.locked = True
+
+            def unlock(self):
+                if self.locked:
+                    msvcrt.locking(self.fp, msvcrt.LK_UNLCK, 1)
+                self.locked = False
+
+        else:
+            import fcntl
+            def lock(self):
+                fcntl.lockf(self.fp, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+                self.locked = True
+
+            def unlock(self):
+                if self.locked:
+                    fcntl.lockf(self.fp, fcntl.LOCK_UN)
+                self.locked = False
+
+        FileLock.lock = lock
+        FileLock.unlock = unlock
+
+
+class LockedFile(FileLock):
+    """Open a file with advisory locking.  This provides the Isolation
+       property of ACID, to avoid missing writes.  In addition this provides AC
+       properties of ACID if crudini is the only logic accessing the ini file.
+       This should work on most platforms and distributed file systems.
+
+       Caveats in --inplace mode:
+        - File must be writeable
+        - File should be generally non readable to avoid read lock DoS.
+       Caveats in replace mode:
+        - Possibility of stale lock files left on crash leading to deadlock.
+        - Less responsive when there is contention."""
+
+    def __init__(self, filename, operation, inplace):
+
+        self.filename = filename
+        self.operation = operation
+
+        FileLock.__init__(self, operation != "--get", not inplace)
+
+        if inplace:
+            self.lockpath = filename
+        else:
+            self.lockpath = os.path.join(os.path.dirname(filename),
+                                         '.' + os.path.basename(filename) + '.crudini.lck')
+
+        if inplace:
+            open_mode = 'r'
+            if operation != "--get":
+                open_mode += '+'
+
+        try:
+            if inplace:
+                self.fp = open(self.lockpath, open_mode)
+                # In general readers are protected by file_replace()
+                # but using read lock here gives AC of the ACID propserties
+                # when only accessing the file through crudini even with file_rewrite().
+                self.lock()
+            else:
+                self.lock()
+                self.fp = open(self.filename)
+        except EnvironmentError as e:
+            error(str(e))
+            sys.exit(1)
+
+    def __del__(self):
+        # explicit close so closed in correct order
+        # if taking lock multiple times
+        self.unlock()
+        if self.fp:
+            self.fp.close()
+
+
+locked_file = None
 
 def _parse_file(filename, add_default=False):
     # Note we use RawConfigParser rather than SafeConfigParser
@@ -215,7 +359,8 @@ def _parse_file(filename, add_default=False):
         if filename == '-':
             fp = StringIO(stdin)
         else:
-            fp = open(filename)
+            global locked_file
+            fp = locked_file.fp
         if add_default:
             fp = add_default_section(fp)
         conf = iniparse.RawConfigParser()
@@ -224,11 +369,17 @@ def _parse_file(filename, add_default=False):
     except EnvironmentError as e:
         error(str(e))
         sys.exit(1)
+    finally:
+        fp.seek(0) # in case we need to reparse
 
 
 def parse_file(filename):
     global added_default_section
     added_default_section = False
+
+    global locked_file
+    if filename != '-':
+        locked_file = LockedFile (filename, mode, inplace)
 
     try:
         conf = _parse_file(filename)
@@ -236,7 +387,7 @@ def parse_file(filename):
         if not conf.items(iniparse.DEFAULTSECT):
             # Check if there is just [DEFAULT] in a file with no
             # name=values to avoid adding a duplicate section.
-            if not has_default_section(filename):
+            if not has_default_section(locked_file):
                 # reparse with inserted [DEFAULT] to be able to add global opts etc.
                 conf = _parse_file(filename, add_default=True)
                 added_default_section = True
@@ -270,7 +421,7 @@ def set_name_value(section, param, value):
             if not _sec:
                 raise ConfigParser.NoSectionError(section)
         else:
-           _val = conf.get(section, param)
+            _val = conf.get(section, param)
     elif section != iniparse.DEFAULTSECT and not conf.has_section(section):
         conf.add_section(section)
 
@@ -381,16 +532,6 @@ except ConfigParser.NoOptionError:
     error('Parameter not found: %s' % param)
     sys.exit(1)
 
-def delete_if_exists(path):
-    """Delete a file, but ignore file not found error.
-    """
-    try:
-        os.unlink(path)
-    except EnvironmentError as e:
-        if e.errno != errno.ENOENT:
-            print str(e)
-            raise
-
 @contextlib.contextmanager
 def remove_file_on_error(path):
     """Protect code that wants to operate on PATH atomically.
@@ -420,7 +561,7 @@ def file_replace(name, data):
      - Requires write permission on the directory as well as the file.
      - With python2 on windows we don't fulfill the A ACID property.
 
-    To avoid the above caveats see the --rewrite option.
+    To avoid the above caveats see the --inplace option.
     """
     (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
 
@@ -449,8 +590,9 @@ def file_rewrite(name, data):
     noted in file_replace().
 
     Caveats:
-     - Not atomic as readers may see incomplete data for a while.
-     - Less durable as exisiting data truncated before I/O completes.
+     - Not Atomic as readers may see incomplete data for a while.
+     - Not Consistent as multiple writers may overlap.
+     - Less Durable as exisiting data truncated before I/O completes.
      - Requires write access to file rather than write access to dir.
     """
     with open(name, 'w') as f:
@@ -473,7 +615,7 @@ if mode != '--get':
         if output == '-':
             sys.stdout.write(str_data)
         else:
-            file_edit = file_rewrite if rewrite else file_replace
+            file_edit = file_rewrite if inplace else file_replace
             file_edit(output, str_data)
     except EnvironmentError as e:
         error(str(e))

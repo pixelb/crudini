@@ -69,47 +69,50 @@ crudini --set test.ini '' global valnew
 printf '%s\n' 'global=valnew' '' '[nonDEFAULT]' 'name=val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
+# do these --sets which test [DEFAULT] handling also with --inplace
+for mode in '' '--inplace'; do
 # Add '[DEFAULT]' if explicitly specified
-printf '%s\n' 'global=val' '' '[nonDEFAULT]' 'name=val' > test.ini
-crudini --set test.ini DEFAULT global valnew
-printf '%s\n' '[DEFAULT]' 'global=valnew' '' '[nonDEFAULT]' 'name=val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  printf '%s\n' 'global=val' '' '[nonDEFAULT]' 'name=val' > test.ini
+  crudini $mode --set test.ini DEFAULT global valnew
+  printf '%s\n' '[DEFAULT]' 'global=valnew' '' '[nonDEFAULT]' 'name=val' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-printf '%s\n' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > test.ini
-crudini --set test.ini DEFAULT global val
-printf '%s\n' '[DEFAULT]' 'global = val' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  printf '%s\n' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > test.ini
+  crudini $mode --set test.ini DEFAULT global val
+  printf '%s\n' '[DEFAULT]' 'global = val' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-printf '%s\n' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > test.ini
-crudini --set test.ini '' global val
-printf '%s\n' 'global = val' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  printf '%s\n' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > test.ini
+  crudini $mode --set test.ini '' global val
+  printf '%s\n' 'global = val' '[nonDEFAULT1]' 'name=val' '[nonDEFAULT2]' 'name=val' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-# Ensure '[DEFAULT]' is not duplicated
-printf '%s\n' '[DEFAULT]' > test.ini
-crudini --set test.ini DEFAULT global val
-printf '%s\n' '[DEFAULT]' 'global = val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  # Ensure '[DEFAULT]' is not duplicated
+  printf '%s\n' '[DEFAULT]' > test.ini
+  crudini $mode --set test.ini DEFAULT global val
+  printf '%s\n' '[DEFAULT]' 'global = val' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-# Ensure '[DEFAULT]' is not duplicated when trailing space is present
-printf '%s\n' '[DEFAULT]  ' > test.ini
-crudini --set test.ini DEFAULT global val
-printf '%s\n' '[DEFAULT]  ' 'global = val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  # Ensure '[DEFAULT]' is not duplicated when trailing space is present
+  printf '%s\n' '[DEFAULT]  ' > test.ini
+  crudini $mode --set test.ini DEFAULT global val
+  printf '%s\n' '[DEFAULT]  ' 'global = val' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-# Ensure '[DEFAULT]' is not duplicated when a trailing comment is present
-printf '%s\n' '[DEFAULT] #comment' > test.ini
-crudini --set test.ini DEFAULT global val
-printf '%s\n' '[DEFAULT] #comment' 'global = val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  # Ensure '[DEFAULT]' is not duplicated when a trailing comment is present
+  printf '%s\n' '[DEFAULT] #comment' > test.ini
+  crudini $mode --set test.ini DEFAULT global val
+  printf '%s\n' '[DEFAULT] #comment' 'global = val' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-# Maintain colon separation
-crudini --set example.ini section1 colon val
-grep -q '^colon:val' example.ini && ok || fail
+  # Maintain colon separation
+  crudini $mode --set example.ini section1 colon val
+  grep -q '^colon:val' example.ini && ok || fail
 
-# Maintain space separation
-crudini --set example.ini section1 nospace val
-grep -q '^nospace=val' example.ini && ok || fail
+  # Maintain space separation
+  crudini $mode --set example.ini section1 nospace val
+  grep -q '^nospace=val' example.ini && ok || fail
+done
 
 # value is optional
 :> test.ini

@@ -11,7 +11,7 @@ Options:
                      section or param is not present
   --format=FMT     For --get, select the output FMT.
                      Formats are sh,ini,lines
-  --rewrite        Truncate and write files in place.
+  --inplace        Lock and write files in place.
                      This is not atomic but has less restrictions
                      than the default replacement method.
   --output=FILE    Write output to FILE instead. '-' means stdout
