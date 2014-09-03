@@ -24,3 +24,5 @@
 [ non-sh-compat ] útf8name = val
 [ non-sh-compat ] 1num = val
 [ non-sh-compat ] ls;name = val
+[ list ] list1 = v1, v2
+[ list ] list2 = v1,v2

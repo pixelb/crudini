@@ -17,7 +17,7 @@ cp ../example.ini .
 
 :> test.ini
 crudini 2>/dev/null && fail
-crudini --met test.init 2>/dev/null && fail # bad mode
+crudini --met test.ini 2>/dev/null && fail # bad mode
 crudini --set 2>/dev/null && fail # no file
 crudini --set test.ini  2>/dev/null && fail # no section
 crudini --get 2>/dev/null && fail # no file
@@ -147,7 +147,7 @@ test "$(crudini --get example.ini section1 cAps)" = 'not significant' && ok || f
 
 # get sections
 crudini --get example.ini > test.ini
-printf '%s\n' DEFAULT section1 'empty section' non-sh-compat > good.ini
+printf '%s\n' DEFAULT section1 'empty section' non-sh-compat list > good.ini
 diff -u test.ini good.ini && ok || fail
 
 # get implicit default section
@@ -324,3 +324,46 @@ diff -u test.ini section1.lines && ok || fail
 
 crudini --get --format=lines example.ini > test.ini || fail
 diff -u test.ini example.lines && ok || fail
+
+# --list -------------------------------------------------
+
+# Add new item to list
+crudini --list --set example.ini list list1 v3 || fail
+test "$(crudini --get example.ini list list1)" = 'v1, v2, v3' && ok || fail
+
+# Ensure item in list
+crudini --list --set example.ini list list1 v3 || fail
+test "$(crudini --get example.ini list list1)" = 'v1, v2, v3' && ok || fail
+
+# Delete item from list
+crudini --list --del example.ini list list1 v3 || fail
+test "$(crudini --get example.ini list list1)" = 'v1, v2' && ok || fail
+
+# Delete non existing item from list
+for existing in '' '--existing'; do
+  crudini $existing --list --del example.ini list list1 v3 || fail
+  test "$(crudini --get example.ini list list1)" = 'v1, v2' && ok || fail
+done
+
+# Add new item to list without spacing
+#  auto
+crudini --list --set example.ini list list2 v3 || fail
+test "$(crudini --get example.ini list list2)" = 'v1,v2,v3' && ok || fail
+crudini --set example.ini list list2 'v1,v2' || fail
+#  explicit
+crudini --list --list-sep=, --set example.ini list list2 v3 || fail
+test "$(crudini --get example.ini list list2)" = 'v1,v2,v3' && ok || fail
+
+
+# Delete item from list without spacing
+#  auto
+crudini --list --del example.ini list list2 v3 || fail
+test "$(crudini --get example.ini list list2)" = 'v1,v2' && ok || fail
+crudini --set example.ini list list2 'v1,v2,v3' || fail
+#  explicit
+crudini --list --list-sep=, --del example.ini list list2 v3 || fail
+test "$(crudini --get example.ini list list2)" = 'v1,v2' && ok || fail
+
+# Delete honoring --existing
+crudini --list --existing --del example.ini nolist list1 v3 2>/dev/null && fail || ok
+crudini --list --existing --del example.ini list nolist1 v3 2>/dev/null && fail || ok

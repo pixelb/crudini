@@ -43,7 +43,7 @@ def usage(exitval=0):
       "\n" +
       "Usage: " + cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
       "  or:  " + cmd + " --get [OPTION]...   config_file [section] [param]\n" +
-      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param]\n" +
+      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param] [value]\n" +
       "  or:  " + cmd + " --merge [OPTION]... config_file [section]\n" +
       "\n"
       "Options:\n"
@@ -55,6 +55,8 @@ def usage(exitval=0):
       "  --inplace        Lock and write files in place.\n"
       "                     This is not atomic but has less restrictions\n"
       "                     than the default replacement method.\n"
+      "  --list           For --set and --del, update a list (set) of values\n"
+      "  --list-sep=STR   Delimit list values with \"STR\" instead of \" ,\"\n"
       "  --output=FILE    Write output to FILE instead. '-' means stdout\n"
     )
     sys.exit(exitval)
@@ -105,18 +107,20 @@ def print_name_value(name, value, section=None):
     else:
         print name or value
 
-mode = fmt = update = inplace = cfgfile = output = section = param = value = None
+mode = fmt = update = inplace = cfgfile = output = section = param = \
+value = vlist = listsep = None
 
 def parse_options():
     try:
-        long_options = ['set', 'del', 'get', 'merge', 'existing', 'format=',
-                        'output=', 'inplace', 'help', 'version']
+        long_options = ['set', 'del', 'get', 'list', 'list-sep=', 'merge',
+                        'existing', 'format=', 'output=', 'inplace', 'help', 'version']
         opts, args = getopt.getopt(sys.argv[1:], '', long_options)
     except getopt.GetoptError, e:
         error(str(e))
         usage(1)
 
-    global mode, fmt, update, inplace, cfgfile, output, section, param, value
+    global mode, fmt, update, inplace, cfgfile, output, section, param, \
+           value, vlist, listsep
 
     for o, a in opts:
         if o in ('--help',):
@@ -138,6 +142,10 @@ def parse_options():
             update = True
         elif o in ('--inplace',):
             inplace = True
+        elif o in ('--list',):
+            vlist = "set" #TODO support combos of list, sorted, ...
+        elif o in ('--list-sep',):
+            listsep = a
         elif o in ('--output',):
             output = a
 
@@ -163,8 +171,9 @@ def parse_options():
     if param is not None and mode in ('--merge',):
         usage(1)
     if value is not None and mode not in ('--set',):
-        error('A value should not be specified with %s' % mode)
-        usage(1)
+        if not (mode == '--del' and vlist):
+            error('A value should not be specified with %s' % mode)
+            usage(1)
 
     if mode == '--merge' and fmt == 'sh':
         # I'm not sure how useful is is to support this.
@@ -414,20 +423,61 @@ if mode == '--merge' and not update \
    and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
     added_default_section = madded_default_section
 
+# TODO item should be items and split also
+# especially in merge mode
+def update_list(curr_val, item, mode, sep):
+    curr_items = []
+    use_space = True
+    if curr_val:
+        if sep is None:
+            use_space = ' ' in curr_val or ',' not in curr_val
+            curr_items = [v.strip() for v in curr_val.split(",")]
+        else:
+            curr_items = curr_val.split(sep)
+
+    if mode == "--set":
+        if item not in curr_items:
+            curr_items.append(item)
+    elif mode == "--del":
+        try:
+            curr_items.remove(item)
+        except ValueError:
+            pass
+
+    if sep is None:
+        sep = ","
+        if use_space:
+            sep += " "
+
+    return sep.join(curr_items)
+
 def set_name_value(section, param, value):
+    curr_val = None
+
     if update:
         if param is None:
             _sec = section == iniparse.DEFAULTSECT or conf.has_section(section)
             if not _sec:
                 raise ConfigParser.NoSectionError(section)
         else:
-            _val = conf.get(section, param)
+            curr_val = conf.get(section, param)
     elif section != iniparse.DEFAULTSECT and not conf.has_section(section):
-        conf.add_section(section)
+        if mode == "--del":
+            raise ConfigParser.NoSectionError(section)
+        else:
+            conf.add_section(section)
 
     if param is not None:
+        if not update:
+            try:
+                curr_val = conf.get(section, param)
+            except ConfigParser.NoOptionError:
+                if mode == "--del":
+                    return
         if value is None:
             value = ''
+        if vlist:
+            value = update_list(curr_val, value, mode, listsep)
         conf.set(section, param, value)
 
 try:
@@ -469,6 +519,8 @@ try:
         elif value is None:
             if not conf.remove_option(section, param) and update:
                 raise ConfigParser.NoOptionError(section, param)
+        else: # remove item from list
+            set_name_value(section, param, value)
     elif mode == '--get' and fmt != 'lines':
         if section is None:
             if conf.defaults():

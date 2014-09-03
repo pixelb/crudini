@@ -7,8 +7,13 @@ support multiple files passed to --merge
 
 possibly support --format=sh|json with --merge
 
-possible support multiple duplicate names per section
-to support MultiStrOpt in openstack config files file example
+possibly support multiple duplicate names per section
+to support MultiStrOpt in openstack config files file example.
+This could be interfaced using the --list=multiname option.
+Also have --list autodetect multiline lists as used by yum like:
+  name = val1, val2
+         val3
+I.E. split on a combo of [\n,]
 
 possibly support --lower to output normalised case for
 --get and --sort
