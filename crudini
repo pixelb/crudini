@@ -360,10 +360,16 @@ class LockedFile(FileLock):
 
 locked_file = None
 
-def _parse_file(filename, add_default=False):
-    # Note we use RawConfigParser rather than SafeConfigParser
-    # to avoid unwanted variable interpolation.
-    # Note iniparse doesn't currently support allow_no_value=True.
+# Note we use RawConfigParser rather than SafeConfigParser
+# to avoid unwanted variable interpolation.
+# Note iniparse doesn't currently support allow_no_value=True.
+class CrudiniConfigParser(iniparse.RawConfigParser):
+    def __init__(self, preserve_case=False):
+        iniparse.RawConfigParser.__init__(self)
+        if preserve_case:
+            self.optionxform = str
+
+def _parse_file(filename, add_default=False, preserve_case=False):
     try:
         if filename == '-':
             fp = StringIO(stdin)
@@ -372,7 +378,7 @@ def _parse_file(filename, add_default=False):
             fp = locked_file.fp
         if add_default:
             fp = add_default_section(fp)
-        conf = iniparse.RawConfigParser()
+        conf = CrudiniConfigParser(preserve_case=preserve_case)
         conf.readfp(fp)
         return conf
     except EnvironmentError as e:
@@ -382,7 +388,7 @@ def _parse_file(filename, add_default=False):
         fp.seek(0) # in case we need to reparse
 
 
-def parse_file(filename):
+def parse_file(filename, preserve_case=False):
     global added_default_section
     added_default_section = False
 
@@ -391,18 +397,19 @@ def parse_file(filename):
         locked_file = LockedFile (filename, mode, inplace)
 
     try:
-        conf = _parse_file(filename)
+        conf = _parse_file(filename, preserve_case=preserve_case)
 
         if not conf.items(iniparse.DEFAULTSECT):
             # Check if there is just [DEFAULT] in a file with no
             # name=values to avoid adding a duplicate section.
             if not has_default_section(locked_file):
                 # reparse with inserted [DEFAULT] to be able to add global opts etc.
-                conf = _parse_file(filename, add_default=True)
+                conf = _parse_file(filename, add_default=True,
+                                   preserve_case=preserve_case)
                 added_default_section = True
 
     except ConfigParser.MissingSectionHeaderError:
-        conf = _parse_file(filename, add_default=True)
+        conf = _parse_file(filename, add_default=True, preserve_case=preserve_case)
         added_default_section = True
     except ConfigParser.ParsingError as e:
         error(str(e))
@@ -414,7 +421,7 @@ added_default_section = False
 
 if mode == '--merge':
     stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
-    mconf = parse_file('-')
+    mconf = parse_file('-', preserve_case=True)
 
 madded_default_section = added_default_section
 conf = parse_file(cfgfile)
@@ -498,7 +505,7 @@ try:
                     ignore_errs = (ConfigParser.NoOptionError,)
                     if section is not None:
                         msection = section
-                    else:
+                    elif not update:
                         ignore_errs += (ConfigParser.NoSectionError,)
                     try:
                         set_param = True
@@ -577,8 +584,8 @@ try:
                 if not items:
                     print_name_value(None, None, section)
 
-except ConfigParser.NoSectionError:
-    error('Section not found: %s' % section)
+except ConfigParser.NoSectionError as e:
+    error('Section not found: %s' % e.section)
     sys.exit(1)
 except ConfigParser.NoOptionError:
     error('Parameter not found: %s' % param)

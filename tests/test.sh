@@ -283,6 +283,29 @@ crudini --merge test.ini 'section1' || fail
 printf '%s\n' 'name=val1' '[section1]' 'name=val2a' 'name2 = val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
+# Maintain case for existing parameters
+printf '%s\n' '[section]' 'name=val' > test.ini
+printf '%s\n' '[section]' 'Name=val' |
+crudini --merge test.ini || fail
+printf '%s\n' '[section]' 'name=val'> good.ini
+diff -u test.ini good.ini && ok || fail
+
+# Honor case for new parameters (spacing not currently honored)
+printf '%s\n' '[section]' 'name1=val' > test.ini
+printf '%s\n' '[section]' 'Name2=val' |
+crudini --merge test.ini || fail
+printf '%s\n' '[section]' 'name1=val' 'Name2 = val' > good.ini
+diff -u test.ini good.ini && ok || fail
+
+# Note iniparse currently matches sections case insensitively
+printf '%s\n' '[section1]' 'name=val1' > test.ini
+printf '%s\n' '[Section1]' 'name=val2' |
+crudini --merge --existing 2>/dev/null test.ini && fail || ok
+printf '%s\n' '[Section1]' 'name=val2' |
+crudini --merge test.ini || fail
+printf '%s\n' '[section1]' 'name=val1' '' '' '[Section1]' 'name = val2' > good.ini
+diff -u test.ini good.ini && ok || fail
+
 # --del -------------------------------------------------
 
 for sec in '' '[DEFAULT]'; do
