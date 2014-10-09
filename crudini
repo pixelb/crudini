@@ -43,7 +43,7 @@ def usage(exitval=0):
       "\n" +
       "Usage: " + cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
       "  or:  " + cmd + " --get [OPTION]...   config_file [section] [param]\n" +
-      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param] [value]\n" +
+      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param]\n" +
       "  or:  " + cmd + " --merge [OPTION]... config_file [section]\n" +
       "\n"
       "Options:\n"
