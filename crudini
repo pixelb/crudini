@@ -40,13 +40,13 @@ def usage(exitval=0):
     output = sys.stderr if exitval else sys.stdout
     output.write(
       "A utility for manipulating ini files\n"
-      "\n" +
-      "Usage: " + cmd + " --set        [OPTION]... file section   [param] [value]\n" +
-      "  or:  " + cmd + " --set --list [OPTION]... file section   [param] [list value]\n" +
-      "  or:  " + cmd + " --get        [OPTION]... file [section] [param]\n" +
-      "  or:  " + cmd + " --del        [OPTION]... file section   [param]\n" +
-      "  or:  " + cmd + " --del --list [OPTION]... file section   [param] [list value]\n" +
-      "  or:  " + cmd + " --merge      [OPTION]... file [section]\n" +
+      "\n"
+      "Usage: " + cmd + " --set        [OPTION]... file section   [param] [value]\n"
+      "  or:  " + cmd + " --set --list [OPTION]... file section   [param] [list value]\n"
+      "  or:  " + cmd + " --get        [OPTION]... file [section] [param]\n"
+      "  or:  " + cmd + " --del        [OPTION]... file section   [param]\n"
+      "  or:  " + cmd + " --del --list [OPTION]... file section   [param] [list value]\n"
+      "  or:  " + cmd + " --merge      [OPTION]... file [section]\n"
       "\n"
       "Commands:\n"
       "\n"
