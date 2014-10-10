@@ -40,11 +40,21 @@ def usage(exitval=0):
     output = sys.stderr if exitval else sys.stdout
     output.write(
       "A utility for manipulating ini files\n"
-      "\n" +
-      "Usage: " + cmd + " --set [OPTION]...   config_file section   [param] [value]\n" +
-      "  or:  " + cmd + " --get [OPTION]...   config_file [section] [param]\n" +
-      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param] [value]\n" +
-      "  or:  " + cmd + " --merge [OPTION]... config_file [section]\n" +
+      "\n"
+      "Usage: " + cmd + " --set        [OPTION]... file section   [param] [value]\n"
+      "  or:  " + cmd + " --set --list [OPTION]... file section   [param] [list value]\n"
+      "  or:  " + cmd + " --get        [OPTION]... file [section] [param]\n"
+      "  or:  " + cmd + " --del        [OPTION]... file section   [param]\n"
+      "  or:  " + cmd + " --del --list [OPTION]... file section   [param] [list value]\n"
+      "  or:  " + cmd + " --merge      [OPTION]... file [section]\n"
+      "\n"
+      "Commands:\n"
+      "\n"
+      "  --set            Insert a section/parameter\n"
+      "  --get            Output a section/parameter\n"
+      "  --del            Delete a section/parameter\n"
+      "  --list           Update a list (set) of values\n"
+      "  --merge          Merge an ini file from another ini\n"
       "\n"
       "Options:\n"
       "\n"
@@ -55,7 +65,6 @@ def usage(exitval=0):
       "  --inplace        Lock and write files in place.\n"
       "                     This is not atomic but has less restrictions\n"
       "                     than the default replacement method.\n"
-      "  --list           For --set and --del, update a list (set) of values\n"
       "  --list-sep=STR   Delimit list values with \"STR\" instead of \" ,\"\n"
       "  --output=FILE    Write output to FILE instead. '-' means stdout\n"
     )
