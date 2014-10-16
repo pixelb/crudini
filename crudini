@@ -168,6 +168,17 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
         if preserve_case:
             self.optionxform = str
 
+_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
+mode = fmt = update = inplace = cfgfile = output = section = param = \
+value = vlist = listsep = None
+
+stdin = ""
+
+locked_file = None
+section_explicit_default = False
+conf = None
+added_default_section = False
+
 # The following exits cleanly on Ctrl-C,
 # while treating other exceptions as before.
 def cli_exception(type, value, tb):
@@ -522,17 +533,6 @@ def init_iniparse_defaultsect():
         iniparse.DEFAULTSECT
     except AttributeError:
         iniparse.DEFAULTSECT = 'DEFAULT'
-
-_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
-mode = fmt = update = inplace = cfgfile = output = section = param = \
-value = vlist = listsep = None
-
-stdin = ""
-
-locked_file = None
-section_explicit_default = False
-conf = None
-added_default_section = False
 
 def main():
     global mode, fmt, update, inplace, cfgfile, output, section, param
