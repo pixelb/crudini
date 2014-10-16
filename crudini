@@ -8,18 +8,19 @@
 # under the terms of the GPLv2, the GNU General Public License version 2, as
 # published by the Free Software Foundation. http://gnu.org/licenses/gpl.html
 
-import os
-import sys
-import errno
-import contextlib
+from cStringIO import StringIO
+
 import ConfigParser
+import contextlib
+import errno
 import getopt
 import iniparse
+import os
 import pipes
 import shutil
 import string
+import sys
 import tempfile
-from cStringIO import StringIO
 import time
 
 # XXX: should be done in iniparse.  Used to
