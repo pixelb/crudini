@@ -166,6 +166,14 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
         if preserve_case:
             self.optionxform = str
 
+_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
+mode = fmt = update = inplace = cfgfile = output = section = param = \
+value = vlist = listsep = None
+
+stdin = ""
+
+locked_file = None
+
 # The following exits cleanly on Ctrl-C,
 # while treating other exceptions as before.
 def cli_exception(type, value, tb):
@@ -209,7 +217,6 @@ def error(message=None):
     if message:
         sys.stderr.write(message+'\n')
 
-_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
 def valid_sh_identifier(i):
     if i[0] in string.digits:
         return False
@@ -250,9 +257,6 @@ def print_name_value(name, value, section=None):
         print name, '=', value.replace('\n','\n ')
     else:
         print name or value
-
-mode = fmt = update = inplace = cfgfile = output = section = param = \
-value = vlist = listsep = None
 
 def parse_options():
     try:
@@ -335,7 +339,6 @@ if section == '':
 elif section == iniparse.DEFAULTSECT:
     section_explicit_default = True
 
-stdin = ""
 
 def has_default_section(locked_file):
     try:
@@ -367,7 +370,6 @@ def delete_if_exists(path):
             raise
 
 
-locked_file = None
 
 def _parse_file(filename, add_default=False, preserve_case=False):
     try:
