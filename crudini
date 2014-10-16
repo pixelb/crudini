@@ -104,7 +104,6 @@ class FileLock(object):
         FileLock.lock = lock
         FileLock.unlock = unlock
 
-
 class LockedFile(FileLock):
     """Open a file with advisory locking.  This provides the Isolation
        property of ACID, to avoid missing writes.  In addition this provides AC
@@ -339,7 +338,6 @@ if section == '':
 elif section == iniparse.DEFAULTSECT:
     section_explicit_default = True
 
-
 def has_default_section(locked_file):
     try:
         if locked_file is None:
@@ -369,8 +367,6 @@ def delete_if_exists(path):
             print str(e)
             raise
 
-
-
 def _parse_file(filename, add_default=False, preserve_case=False):
     try:
         if filename == '-':
@@ -388,7 +384,6 @@ def _parse_file(filename, add_default=False, preserve_case=False):
         sys.exit(1)
     finally:
         fp.seek(0) # in case we need to reparse
-
 
 def parse_file(filename, preserve_case=False):
     global added_default_section
