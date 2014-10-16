@@ -166,14 +166,6 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
         if preserve_case:
             self.optionxform = str
 
-_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
-mode = fmt = update = inplace = cfgfile = output = section = param = \
-value = vlist = listsep = None
-
-stdin = ""
-
-locked_file = None
-
 # The following exits cleanly on Ctrl-C,
 # while treating other exceptions as before.
 def cli_exception(type, value, tb):
@@ -181,11 +173,6 @@ def cli_exception(type, value, tb):
         sys.__excepthook__(type, value, tb)
 if sys.stdin.isatty():
     sys.excepthook=cli_exception
-
-try:
-    iniparse.DEFAULTSECT
-except AttributeError:
-    iniparse.DEFAULTSECT = 'DEFAULT'
 
 def usage(exitval=0):
     cmd = os.path.basename(sys.argv[0])
@@ -331,14 +318,6 @@ def parse_options():
         error('sh format input is not supported at present')
         sys.exit(1)
 
-parse_options()
-
-section_explicit_default = False
-if section == '':
-    section = iniparse.DEFAULTSECT
-elif section == iniparse.DEFAULTSECT:
-    section_explicit_default = True
-
 def has_default_section(locked_file):
     try:
         if locked_file is None:
@@ -414,19 +393,6 @@ def parse_file(filename, preserve_case=False):
         sys.exit(1)
 
     return conf
-
-added_default_section = False
-
-if mode == '--merge':
-    stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
-    mconf = parse_file('-', preserve_case=True)
-
-madded_default_section = added_default_section
-conf = parse_file(cfgfile)
-# Take the [DEFAULT] header from the input if present
-if mode == '--merge' and not update \
-   and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
-    added_default_section = madded_default_section
 
 # TODO item should be items and split also
 # especially in merge mode
@@ -550,6 +516,40 @@ def file_rewrite(name, data):
     """
     with open(name, 'w') as f:
         f.write(data)
+
+_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
+mode = fmt = update = inplace = cfgfile = output = section = param = \
+value = vlist = listsep = None
+
+stdin = ""
+
+locked_file = None
+
+try:
+    iniparse.DEFAULTSECT
+except AttributeError:
+    iniparse.DEFAULTSECT = 'DEFAULT'
+
+parse_options()
+
+section_explicit_default = False
+if section == '':
+    section = iniparse.DEFAULTSECT
+elif section == iniparse.DEFAULTSECT:
+    section_explicit_default = True
+
+added_default_section = False
+
+if mode == '--merge':
+    stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
+    mconf = parse_file('-', preserve_case=True)
+
+madded_default_section = added_default_section
+conf = parse_file(cfgfile)
+# Take the [DEFAULT] header from the input if present
+if mode == '--merge' and not update \
+   and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
+    added_default_section = madded_default_section
 
 try:
     if mode == '--set':
