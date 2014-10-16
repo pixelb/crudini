@@ -24,7 +24,7 @@ import time
 
 # XXX: should be done in iniparse.  Used to
 # add support for ini files without a section
-class add_default_section():
+class AddDefaultSection():
     def __init__(self, fp):
         self.fp = fp
         self.first = True
@@ -377,7 +377,7 @@ def _parse_file(filename, add_default=False, preserve_case=False):
             global locked_file
             fp = locked_file.fp
         if add_default:
-            fp = add_default_section(fp)
+            fp = AddDefaultSection(fp)
         conf = CrudiniConfigParser(preserve_case=preserve_case)
         conf.readfp(fp)
         return conf
