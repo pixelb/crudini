@@ -521,7 +521,6 @@ def init_iniparse_defaultsect():
     except AttributeError:
         iniparse.DEFAULTSECT = 'DEFAULT'
 
-
 _sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
 mode = fmt = update = inplace = cfgfile = output = section = param = \
 value = vlist = listsep = None
