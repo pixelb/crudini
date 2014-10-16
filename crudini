@@ -23,6 +23,152 @@ import tempfile
 from cStringIO import StringIO
 import time
 
+# XXX: should be done in iniparse.  Used to
+# add support for ini files without a section
+class add_default_section():
+    def __init__(self, fp):
+        self.fp = fp
+        self.first = True
+
+    def readline(self):
+        if self.first:
+            self.first = False
+            return '[%s]' % iniparse.DEFAULTSECT
+        else:
+            return self.fp.readline()
+
+    def seek(self, *args):
+        self.fp.seek(*args)
+
+class FileLock(object):
+    """Advisory file based locking.  This should be reasonably cross platform
+       and also work over distributed file systems."""
+    def __init__(self, exclusive=False, separated=False):
+        # In inplace mode, the process must be careful to not close this fp
+        # until finished, nor open and close another fp associated with the file.
+        self.fp = None
+        self.locked = False
+        self.die = delete_if_exists # reference so available at teardown
+
+        # Note we can't combine these methods to provide separated locks
+        # which are immune to stale file deadlock, as once the separated
+        # file is unlinked or renamed, you introduce a race with 3 or more users
+        # if there is an associated fcntl lock.
+
+        if separated:
+            import signal
+            def cleanup(signum, frame):
+                sys.exit(1)
+            if hasattr(signal, "SIGTERM"):
+                signal.signal(signal.SIGTERM, cleanup)
+
+            def lock(self):
+                while True:
+                    try:
+                        os.open(self.lockpath, os.O_EXCL | os.O_CREAT, 0)
+                    except EnvironmentError as e:
+                        if e.errno == errno.EEXIST:
+                            time.sleep(1)
+                        else:
+                            raise
+                    else:
+                        self.locked = True
+                        break
+
+            def unlock(self):
+                if self.locked: # Don't clobber other locks on ctrl-c etc.
+                    self.die (self.lockpath)
+                self.locked = False
+
+        elif os.name == 'nt':
+            import msvcrt
+            def lock(self):
+                msvcrt.locking(self.fp, msvcrt.LK_LOCK, 1)
+                self.locked = True
+
+            def unlock(self):
+                if self.locked:
+                    msvcrt.locking(self.fp, msvcrt.LK_UNLCK, 1)
+                self.locked = False
+
+        else:
+            import fcntl
+            def lock(self):
+                fcntl.lockf(self.fp, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
+                self.locked = True
+
+            def unlock(self):
+                if self.locked:
+                    fcntl.lockf(self.fp, fcntl.LOCK_UN)
+                self.locked = False
+
+        FileLock.lock = lock
+        FileLock.unlock = unlock
+
+
+class LockedFile(FileLock):
+    """Open a file with advisory locking.  This provides the Isolation
+       property of ACID, to avoid missing writes.  In addition this provides AC
+       properties of ACID if crudini is the only logic accessing the ini file.
+       This should work on most platforms and distributed file systems.
+
+       Caveats in --inplace mode:
+        - File must be writeable
+        - File should be generally non readable to avoid read lock DoS.
+       Caveats in replace mode:
+        - Possibility of stale lock files left on crash leading to deadlock.
+        - Less responsive when there is contention."""
+
+    def __init__(self, filename, operation, inplace):
+
+        self.filename = filename
+        self.operation = operation
+
+        FileLock.__init__(self, operation != "--get", not inplace)
+
+        atexit.register(self.delete)
+
+        if inplace:
+            self.lockpath = filename
+        else:
+            self.lockpath = os.path.join(os.path.dirname(filename),
+                                         '.' + os.path.basename(filename) + '.crudini.lck')
+
+        if inplace:
+            open_mode = 'r'
+            if operation != "--get":
+                open_mode += '+'
+
+        try:
+            if inplace:
+                self.fp = open(self.lockpath, open_mode)
+                # In general readers are protected by file_replace()
+                # but using read lock here gives AC of the ACID propserties
+                # when only accessing the file through crudini even with file_rewrite().
+                self.lock()
+            else:
+                self.lock()
+                self.fp = open(self.filename)
+        except EnvironmentError as e:
+            error(str(e))
+            sys.exit(1)
+
+    def delete(self):
+        # explicit close so closed in correct order if taking lock multiple times,
+        # and also explicit "delete" needed to avoid implicit __del__ after os module is unloaded.
+        self.unlock()
+        if self.fp:
+            self.fp.close()
+
+# Note we use RawConfigParser rather than SafeConfigParser
+# to avoid unwanted variable interpolation.
+# Note iniparse doesn't currently support allow_no_value=True.
+class CrudiniConfigParser(iniparse.RawConfigParser):
+    def __init__(self, preserve_case=False):
+        iniparse.RawConfigParser.__init__(self)
+        if preserve_case:
+            self.optionxform = str
+
 # The following exits cleanly on Ctrl-C,
 # while treating other exceptions as before.
 def cli_exception(type, value, tb):
@@ -192,23 +338,6 @@ if section == '':
 elif section == iniparse.DEFAULTSECT:
     section_explicit_default = True
 
-# XXX: should be done in iniparse.  Used to
-# add support for ini files without a section
-class add_default_section():
-    def __init__(self, fp):
-        self.fp = fp
-        self.first = True
-
-    def readline(self):
-        if self.first:
-            self.first = False
-            return '[%s]' % iniparse.DEFAULTSECT
-        else:
-            return self.fp.readline()
-
-    def seek(self, *args):
-        self.fp.seek(*args)
-
 stdin = ""
 
 def has_default_section(locked_file):
@@ -240,137 +369,8 @@ def delete_if_exists(path):
             print str(e)
             raise
 
-class FileLock(object):
-    """Advisory file based locking.  This should be reasonably cross platform
-       and also work over distributed file systems."""
-    def __init__(self, exclusive=False, separated=False):
-        # In inplace mode, the process must be careful to not close this fp
-        # until finished, nor open and close another fp associated with the file.
-        self.fp = None
-        self.locked = False
-        self.die = delete_if_exists # reference so available at teardown
-
-        # Note we can't combine these methods to provide separated locks
-        # which are immune to stale file deadlock, as once the separated
-        # file is unlinked or renamed, you introduce a race with 3 or more users
-        # if there is an associated fcntl lock.
-
-        if separated:
-            import signal
-            def cleanup(signum, frame):
-                sys.exit(1)
-            if hasattr(signal, "SIGTERM"):
-                signal.signal(signal.SIGTERM, cleanup)
-
-            def lock(self):
-                while True:
-                    try:
-                        os.open(self.lockpath, os.O_EXCL | os.O_CREAT, 0)
-                    except EnvironmentError as e:
-                        if e.errno == errno.EEXIST:
-                            time.sleep(1)
-                        else:
-                            raise
-                    else:
-                        self.locked = True
-                        break
-
-            def unlock(self):
-                if self.locked: # Don't clobber other locks on ctrl-c etc.
-                    self.die (self.lockpath)
-                self.locked = False
-
-        elif os.name == 'nt':
-            import msvcrt
-            def lock(self):
-                msvcrt.locking(self.fp, msvcrt.LK_LOCK, 1)
-                self.locked = True
-
-            def unlock(self):
-                if self.locked:
-                    msvcrt.locking(self.fp, msvcrt.LK_UNLCK, 1)
-                self.locked = False
-
-        else:
-            import fcntl
-            def lock(self):
-                fcntl.lockf(self.fp, fcntl.LOCK_EX if exclusive else fcntl.LOCK_SH)
-                self.locked = True
-
-            def unlock(self):
-                if self.locked:
-                    fcntl.lockf(self.fp, fcntl.LOCK_UN)
-                self.locked = False
-
-        FileLock.lock = lock
-        FileLock.unlock = unlock
-
-
-class LockedFile(FileLock):
-    """Open a file with advisory locking.  This provides the Isolation
-       property of ACID, to avoid missing writes.  In addition this provides AC
-       properties of ACID if crudini is the only logic accessing the ini file.
-       This should work on most platforms and distributed file systems.
-
-       Caveats in --inplace mode:
-        - File must be writeable
-        - File should be generally non readable to avoid read lock DoS.
-       Caveats in replace mode:
-        - Possibility of stale lock files left on crash leading to deadlock.
-        - Less responsive when there is contention."""
-
-    def __init__(self, filename, operation, inplace):
-
-        self.filename = filename
-        self.operation = operation
-
-        FileLock.__init__(self, operation != "--get", not inplace)
-
-        atexit.register(self.delete)
-
-        if inplace:
-            self.lockpath = filename
-        else:
-            self.lockpath = os.path.join(os.path.dirname(filename),
-                                         '.' + os.path.basename(filename) + '.crudini.lck')
-
-        if inplace:
-            open_mode = 'r'
-            if operation != "--get":
-                open_mode += '+'
-
-        try:
-            if inplace:
-                self.fp = open(self.lockpath, open_mode)
-                # In general readers are protected by file_replace()
-                # but using read lock here gives AC of the ACID propserties
-                # when only accessing the file through crudini even with file_rewrite().
-                self.lock()
-            else:
-                self.lock()
-                self.fp = open(self.filename)
-        except EnvironmentError as e:
-            error(str(e))
-            sys.exit(1)
-
-    def delete(self):
-        # explicit close so closed in correct order if taking lock multiple times,
-        # and also explicit "delete" needed to avoid implicit __del__ after os module is unloaded.
-        self.unlock()
-        if self.fp:
-            self.fp.close()
-
 
 locked_file = None
-
-# Note we use RawConfigParser rather than SafeConfigParser
-# to avoid unwanted variable interpolation.
-# Note iniparse doesn't currently support allow_no_value=True.
-class CrudiniConfigParser(iniparse.RawConfigParser):
-    def __init__(self, preserve_case=False):
-        iniparse.RawConfigParser.__init__(self)
-        if preserve_case:
-            self.optionxform = str
 
 def _parse_file(filename, add_default=False, preserve_case=False):
     try:
