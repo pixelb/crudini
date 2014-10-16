@@ -8,6 +8,7 @@
 # under the terms of the GPLv2, the GNU General Public License version 2, as
 # published by the Free Software Foundation. http://gnu.org/licenses/gpl.html
 
+import atexit
 import os
 import sys
 import errno
@@ -325,6 +326,8 @@ class LockedFile(FileLock):
 
         FileLock.__init__(self, operation != "--get", not inplace)
 
+        atexit.register(self.delete)
+
         if inplace:
             self.lockpath = filename
         else:
@@ -350,9 +353,9 @@ class LockedFile(FileLock):
             error(str(e))
             sys.exit(1)
 
-    def __del__(self):
-        # explicit close so closed in correct order
-        # if taking lock multiple times
+    def delete(self):
+        # explicit close so closed in correct order if taking lock multiple times,
+        # and also explicit "delete" needed to avoid implicit __del__ after os module is unloaded.
         self.unlock()
         if self.fp:
             self.fp.close()
