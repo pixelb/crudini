@@ -528,155 +528,171 @@ value = vlist = listsep = None
 stdin = ""
 
 locked_file = None
-
-if sys.stdin.isatty():
-    sys.excepthook=cli_exception
-
-init_iniparse_defaultsect()
-parse_options()
-
 section_explicit_default = False
-if section == '':
-    section = iniparse.DEFAULTSECT
-elif section == iniparse.DEFAULTSECT:
-    section_explicit_default = True
-
+conf = None
 added_default_section = False
 
-if mode == '--merge':
-    stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
-    mconf = parse_file('-', preserve_case=True)
+def main():
+    global mode, fmt, update, inplace, cfgfile, output, section, param
+    global value, vlist, listsep
 
-madded_default_section = added_default_section
-conf = parse_file(cfgfile)
-# Take the [DEFAULT] header from the input if present
-if mode == '--merge' and not update \
-   and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
-    added_default_section = madded_default_section
+    global stdin
 
-try:
-    if mode == '--set':
-        set_name_value(section, param, value)
-    elif mode == '--merge':
-        for msection in [iniparse.DEFAULTSECT] + mconf.sections():
-            if msection == iniparse.DEFAULTSECT:
-                defaults_to_strip = {}
-            else:
-                defaults_to_strip = mconf.defaults()
-            items = mconf.items(msection)
-            set_param = False
-            for item in items:
-                # XXX: Note this doesn't update an item in section
-                # if matching value also in default (global) section.
-                if defaults_to_strip.get(item[0]) != item[1]:
-                    ignore_errs = (ConfigParser.NoOptionError,)
-                    if section is not None:
-                        msection = section
-                    elif not update:
-                        ignore_errs += (ConfigParser.NoSectionError,)
-                    try:
-                        set_param = True
-                        set_name_value(msection, item[0], item[1])
-                    except ignore_errs:
-                        pass
-            # For empty sections ensure the section header is added
-            if not set_param and section is None:
-                set_name_value(msection, None, None)
-    elif mode == '--del':
-        if param is None:
-            if section == iniparse.DEFAULTSECT:
-                for name in conf.defaults():
-                    conf.remove_option(iniparse.DEFAULTSECT, name)
-            else:
-                if not conf.remove_section(section) and update:
-                    raise ConfigParser.NoSectionError(section)
-        elif value is None:
-            if not conf.remove_option(section, param) and update:
-                raise ConfigParser.NoOptionError(section, param)
-        else: # remove item from list
+    global locked_file
+    global section_explicit_default
+    global conf
+    global added_default_section
+
+    if sys.stdin.isatty():
+        sys.excepthook=cli_exception
+
+    init_iniparse_defaultsect()
+    parse_options()
+
+    section_explicit_default = False
+    if section == '':
+        section = iniparse.DEFAULTSECT
+    elif section == iniparse.DEFAULTSECT:
+        section_explicit_default = True
+
+
+    if mode == '--merge':
+        stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
+        mconf = parse_file('-', preserve_case=True)
+
+    madded_default_section = added_default_section
+    conf = parse_file(cfgfile)
+    # Take the [DEFAULT] header from the input if present
+    if mode == '--merge' and not update \
+       and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
+        added_default_section = madded_default_section
+
+    try:
+        if mode == '--set':
             set_name_value(section, param, value)
-    elif mode == '--get' and fmt != 'lines':
-        if section is None:
-            if conf.defaults():
-                print_section_header(iniparse.DEFAULTSECT)
-            for item in conf.sections():
-                print_section_header(item)
-        elif param is None:
-            if fmt == 'ini':
-                print_section_header(section)
-            if section == iniparse.DEFAULTSECT:
-                defaults_to_strip = {}
-            else:
-                defaults_to_strip = conf.defaults()
-            for item in conf.items(section):
-                # XXX: Note this strips an item from section
-                # if matching value also in default (global) section.
-                if defaults_to_strip.get(item[0]) != item[1]:
-                    if fmt:
-                        val = item[1]
-                    else:
-                        val = None
-                    print_name_value(item[0], val)
-        else:
-            val = conf.get(section, param)
-            if fmt:
-                name = param
-            else:
-                name = None
-            print_name_value(name, val)
-    elif mode == '--get' and fmt == 'lines':
-        if section is None:
-            sections = conf.sections()
-            if conf.defaults():
-                sections.insert(0, iniparse.DEFAULTSECT)
-        else:
-            sections = (section,)
-        if param is not None:
-            val = conf.get(section, param)
-            print_name_value(param, val, section)
-        else:
-            for section in sections:
+        elif mode == '--merge':
+            for msection in [iniparse.DEFAULTSECT] + mconf.sections():
+                if msection == iniparse.DEFAULTSECT:
+                    defaults_to_strip = {}
+                else:
+                    defaults_to_strip = mconf.defaults()
+                items = mconf.items(msection)
+                set_param = False
+                for item in items:
+                    # XXX: Note this doesn't update an item in section
+                    # if matching value also in default (global) section.
+                    if defaults_to_strip.get(item[0]) != item[1]:
+                        ignore_errs = (ConfigParser.NoOptionError,)
+                        if section is not None:
+                            msection = section
+                        elif not update:
+                            ignore_errs += (ConfigParser.NoSectionError,)
+                        try:
+                            set_param = True
+                            set_name_value(msection, item[0], item[1])
+                        except ignore_errs:
+                            pass
+                # For empty sections ensure the section header is added
+                if not set_param and section is None:
+                    set_name_value(msection, None, None)
+        elif mode == '--del':
+            if param is None:
+                if section == iniparse.DEFAULTSECT:
+                    for name in conf.defaults():
+                        conf.remove_option(iniparse.DEFAULTSECT, name)
+                else:
+                    if not conf.remove_section(section) and update:
+                        raise ConfigParser.NoSectionError(section)
+            elif value is None:
+                if not conf.remove_option(section, param) and update:
+                    raise ConfigParser.NoOptionError(section, param)
+            else: # remove item from list
+                set_name_value(section, param, value)
+        elif mode == '--get' and fmt != 'lines':
+            if section is None:
+                if conf.defaults():
+                    print_section_header(iniparse.DEFAULTSECT)
+                for item in conf.sections():
+                    print_section_header(item)
+            elif param is None:
+                if fmt == 'ini':
+                    print_section_header(section)
                 if section == iniparse.DEFAULTSECT:
                     defaults_to_strip = {}
                 else:
                     defaults_to_strip = conf.defaults()
-                items = False
                 for item in conf.items(section):
                     # XXX: Note this strips an item from section
                     # if matching value also in default (global) section.
                     if defaults_to_strip.get(item[0]) != item[1]:
-                        val = item[1]
-                        print_name_value(item[0], val, section)
-                        items = True
-                if not items:
-                    print_name_value(None, None, section)
+                        if fmt:
+                            val = item[1]
+                        else:
+                            val = None
+                        print_name_value(item[0], val)
+            else:
+                val = conf.get(section, param)
+                if fmt:
+                    name = param
+                else:
+                    name = None
+                print_name_value(name, val)
+        elif mode == '--get' and fmt == 'lines':
+            if section is None:
+                sections = conf.sections()
+                if conf.defaults():
+                    sections.insert(0, iniparse.DEFAULTSECT)
+            else:
+                sections = (section,)
+            if param is not None:
+                val = conf.get(section, param)
+                print_name_value(param, val, section)
+            else:
+                for section in sections:
+                    if section == iniparse.DEFAULTSECT:
+                        defaults_to_strip = {}
+                    else:
+                        defaults_to_strip = conf.defaults()
+                    items = False
+                    for item in conf.items(section):
+                        # XXX: Note this strips an item from section
+                        # if matching value also in default (global) section.
+                        if defaults_to_strip.get(item[0]) != item[1]:
+                            val = item[1]
+                            print_name_value(item[0], val, section)
+                            items = True
+                    if not items:
+                        print_name_value(None, None, section)
 
-except ConfigParser.NoSectionError as e:
-    error('Section not found: %s' % e.section)
-    sys.exit(1)
-except ConfigParser.NoOptionError:
-    error('Parameter not found: %s' % param)
-    sys.exit(1)
-
-if mode != '--get':
-    # XXX: Ideally we should just do conf.write(f) here,
-    # but to avoid iniparse issues, we massage the data a little here
-    str_data = str(conf.data)
-    if len(str_data) and str_data[-1] != '\n':
-        str_data += '\n'
-
-    if (
-        (added_default_section and not (section_explicit_default and mode in ('--set', '--merge')))
-        or (mode == '--del' and section == iniparse.DEFAULTSECT and param is None)
-        ):
-        str_data = str_data.replace('[%s]\n' % iniparse.DEFAULTSECT, '', 1)
-
-    try:
-        if output == '-':
-            sys.stdout.write(str_data)
-        else:
-            file_edit = file_rewrite if inplace else file_replace
-            file_edit(output, str_data)
-    except EnvironmentError as e:
-        error(str(e))
+    except ConfigParser.NoSectionError as e:
+        error('Section not found: %s' % e.section)
         sys.exit(1)
+    except ConfigParser.NoOptionError:
+        error('Parameter not found: %s' % param)
+        sys.exit(1)
+
+    if mode != '--get':
+        # XXX: Ideally we should just do conf.write(f) here,
+        # but to avoid iniparse issues, we massage the data a little here
+        str_data = str(conf.data)
+        if len(str_data) and str_data[-1] != '\n':
+            str_data += '\n'
+
+        if (
+            (added_default_section and not (section_explicit_default and mode in ('--set', '--merge')))
+            or (mode == '--del' and section == iniparse.DEFAULTSECT and param is None)
+            ):
+            str_data = str_data.replace('[%s]\n' % iniparse.DEFAULTSECT, '', 1)
+
+        try:
+            if output == '-':
+                sys.stdout.write(str_data)
+            else:
+                file_edit = file_rewrite if inplace else file_replace
+                file_edit(output, str_data)
+        except EnvironmentError as e:
+            error(str(e))
+            sys.exit(1)
+
+if __name__ == "__main__":
+    sys.exit(main())
