@@ -24,6 +24,20 @@ import sys
 import tempfile
 import time
 
+def error(message=None):
+    if message:
+        sys.stderr.write(message+'\n')
+
+def delete_if_exists(path):
+    """Delete a file, but ignore file not found error.
+    """
+    try:
+        os.unlink(path)
+    except EnvironmentError as e:
+        if e.errno != errno.ENOENT:
+            print str(e)
+            raise
+
 # XXX: should be done in iniparse.  Used to
 # add support for ini files without a section
 class AddDefaultSection():
@@ -169,533 +183,507 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
         if preserve_case:
             self.optionxform = str
 
-_sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
-mode = fmt = update = inplace = cfgfile = output = section = param = \
-value = vlist = listsep = None
+class Crudini():
+    _sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
+    mode = fmt = update = inplace = cfgfile = output = section = param = \
+    value = vlist = listsep = None
 
-stdin = ""
+    stdin = ""
 
-locked_file = None
-section_explicit_default = False
-conf = None
-added_default_section = False
-
-# The following exits cleanly on Ctrl-C,
-# while treating other exceptions as before.
-def cli_exception(type, value, tb):
-    if not issubclass(type, KeyboardInterrupt):
-        sys.__excepthook__(type, value, tb)
-
-def usage(exitval=0):
-    cmd = os.path.basename(sys.argv[0])
-    output = sys.stderr if exitval else sys.stdout
-    output.write(
-      "A utility for manipulating ini files\n"
-      "\n"
-      "Usage: " + cmd + " --set [OPTION]...   config_file section   [param] [value]\n"
-      "  or:  " + cmd + " --get [OPTION]...   config_file [section] [param]\n"
-      "  or:  " + cmd + " --del [OPTION]...   config_file section   [param] [list value]\n"
-      "  or:  " + cmd + " --merge [OPTION]... config_file [section]\n"
-      "\n"
-      "Options:\n"
-      "\n"
-      "  --existing       For --set, --del and --merge fail if the\n"
-      "                     section or param is not present\n"
-      "  --format=FMT     For --get, select the output FMT.\n"
-      "                     Formats are sh,ini,lines\n"
-      "  --inplace        Lock and write files in place.\n"
-      "                     This is not atomic but has less restrictions\n"
-      "                     than the default replacement method.\n"
-      "  --list           For --set and --del, update a list (set) of values\n"
-      "  --list-sep=STR   Delimit list values with \"STR\" instead of \" ,\"\n"
-      "  --output=FILE    Write output to FILE instead. '-' means stdout\n"
-    )
-    sys.exit(exitval)
-
-def error(message=None):
-    if message:
-        sys.stderr.write(message+'\n')
-
-def valid_sh_identifier(i):
-    if i[0] in string.digits:
-        return False
-    for c in i:
-        if c not in _sh_safe_id_chars:
-            return False
-    return True
-
-def print_section_header(section):
-    if fmt == 'ini':
-        print "[%s]" % section
-    else:
-        print section
-
-def print_name_value(name, value, section=None):
-    if fmt == 'lines':
-        # Both unambiguous and easily parseable by shell. Caveat is
-        # that sections and values with spaces are awkward to split in shell
-        if section:
-            line = '[ %s ]' % section
-            if name:
-                line += ' '
-        if name:
-            line += '%s' % name
-        if value:
-            line += ' = %s' % value.replace('\n','\\n')
-        print line
-    elif fmt == 'sh':
-        # Note we provide validation of the output indentifiers
-        # as it's dangerous to leave validation to shell.
-        # consider for example doing eval on this in shell:
-        #   rm -Rf /;oops=val
-        if not valid_sh_identifier(name):
-            error('Inavlid sh identifier: %s' % name)
-            sys.exit(1)
-        sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
-    elif fmt == 'ini':
-        print name, '=', value.replace('\n','\n ')
-    else:
-        print name or value
-
-def parse_options():
-    try:
-        long_options = ['set', 'del', 'get', 'list', 'list-sep=', 'merge',
-                        'existing', 'format=', 'output=', 'inplace', 'help', 'version']
-        opts, args = getopt.getopt(sys.argv[1:], '', long_options)
-    except getopt.GetoptError, e:
-        error(str(e))
-        usage(1)
-
-    global mode, fmt, update, inplace, cfgfile, output, section, param, \
-           value, vlist, listsep
-
-    for o, a in opts:
-        if o in ('--help',):
-            usage(0)
-        elif o in ('--version',):
-            print 'crudini 0.4'
-            sys.exit(0)
-        elif o in ('--set', '--del', '--get', '--merge'):
-            if mode:
-                error('Only one of --set|--del|--get|--merge can be specified')
-                usage(1)
-            mode = o
-        elif o in ('--format',):
-            fmt = a
-            if fmt not in ('sh','ini','lines'):
-                error('--format not recognized: %s' % fmt)
-                usage(1)
-        elif o in ('--existing',):
-            update = True
-        elif o in ('--inplace',):
-            inplace = True
-        elif o in ('--list',):
-            vlist = "set" #TODO support combos of list, sorted, ...
-        elif o in ('--list-sep',):
-            listsep = a
-        elif o in ('--output',):
-            output = a
-
-    if not mode:
-        error('One of --set|--del|--get|--merge must be specified')
-        usage(1)
-
-    try:
-        cfgfile = args[0]
-        section = args[1]
-        param = args[2]
-        value = args[3]
-    except IndexError:
-        pass
-
-    if not output:
-        output = cfgfile
-
-    if cfgfile is None:
-        usage(1)
-    if section is None and mode in ('--del', '--set'):
-        usage(1)
-    if param is not None and mode in ('--merge',):
-        usage(1)
-    if value is not None and mode not in ('--set',):
-        if not (mode == '--del' and vlist):
-            error('A value should not be specified with %s' % mode)
-            usage(1)
-
-    if mode == '--merge' and fmt == 'sh':
-        # I'm not sure how useful is is to support this.
-        # printenv will already generate a mostly compat ini format.
-        # If you want to also include non exported vars (from `set`),
-        # then there is a format change.
-        error('sh format input is not supported at present')
-        sys.exit(1)
-
-def has_default_section(locked_file):
-    try:
-        if locked_file is None:
-            fp = StringIO(stdin)
-        else:
-            fp = locked_file.fp
-
-        for line in fp:
-            if line.startswith('[%s]' % iniparse.DEFAULTSECT):
-                return True
-
-        return False
-
-    except IOError as e:
-        error(str(e))
-        sys.exit(1)
-    finally:
-        fp.seek(0)
-
-def delete_if_exists(path):
-    """Delete a file, but ignore file not found error.
-    """
-    try:
-        os.unlink(path)
-    except EnvironmentError as e:
-        if e.errno != errno.ENOENT:
-            print str(e)
-            raise
-
-def _parse_file(filename, add_default=False, preserve_case=False):
-    try:
-        if filename == '-':
-            fp = StringIO(stdin)
-        else:
-            global locked_file
-            fp = locked_file.fp
-        if add_default:
-            fp = AddDefaultSection(fp)
-        conf = CrudiniConfigParser(preserve_case=preserve_case)
-        conf.readfp(fp)
-        return conf
-    except EnvironmentError as e:
-        error(str(e))
-        sys.exit(1)
-    finally:
-        fp.seek(0) # in case we need to reparse
-
-def parse_file(filename, preserve_case=False):
-    global added_default_section
+    locked_file = None
+    section_explicit_default = False
+    conf = None
     added_default_section = False
 
-    global locked_file
-    if filename != '-':
-        locked_file = LockedFile (filename, mode, inplace)
+    # The following exits cleanly on Ctrl-C,
+    # while treating other exceptions as before.
+    def cli_exception(self, type, value, tb):
+        if not issubclass(type, KeyboardInterrupt):
+            sys.__excepthook__(type, value, tb)
 
-    try:
-        conf = _parse_file(filename, preserve_case=preserve_case)
+    def usage(self, exitval=0):
+        cmd = os.path.basename(sys.argv[0])
+        output = sys.stderr if exitval else sys.stdout
+        output.write(
+          "A utility for manipulating ini files\n"
+          "\n"
+          "Usage: " + cmd + " --set [OPTION]...   config_file section   [param] [value]\n"
+          "  or:  " + cmd + " --get [OPTION]...   config_file [section] [param]\n"
+          "  or:  " + cmd + " --del [OPTION]...   config_file section   [param] [list value]\n"
+          "  or:  " + cmd + " --merge [OPTION]... config_file [section]\n"
+          "\n"
+          "Options:\n"
+          "\n"
+          "  --existing       For --set, --del and --merge fail if the\n"
+          "                     section or param is not present\n"
+          "  --format=FMT     For --get, select the output FMT.\n"
+          "                     Formats are sh,ini,lines\n"
+          "  --inplace        Lock and write files in place.\n"
+          "                     This is not atomic but has less restrictions\n"
+          "                     than the default replacement method.\n"
+          "  --list           For --set and --del, update a list (set) of values\n"
+          "  --list-sep=STR   Delimit list values with \"STR\" instead of \" ,\"\n"
+          "  --output=FILE    Write output to FILE instead. '-' means stdout\n"
+        )
+        sys.exit(exitval)
 
-        if not conf.items(iniparse.DEFAULTSECT):
-            # Check if there is just [DEFAULT] in a file with no
-            # name=values to avoid adding a duplicate section.
-            if not has_default_section(locked_file):
-                # reparse with inserted [DEFAULT] to be able to add global opts etc.
-                conf = _parse_file(filename, add_default=True,
-                                   preserve_case=preserve_case)
-                added_default_section = True
+    def valid_sh_identifier(self, i):
+        if i[0] in string.digits:
+            return False
+        for c in i:
+            if c not in self._sh_safe_id_chars:
+                return False
+        return True
 
-    except ConfigParser.MissingSectionHeaderError:
-        conf = _parse_file(filename, add_default=True, preserve_case=preserve_case)
-        added_default_section = True
-    except ConfigParser.ParsingError as e:
-        error(str(e))
-        sys.exit(1)
-
-    return conf
-
-# TODO item should be items and split also
-# especially in merge mode
-def update_list(curr_val, item, mode, sep):
-    curr_items = []
-    use_space = True
-    if curr_val:
-        if sep is None:
-            use_space = ' ' in curr_val or ',' not in curr_val
-            curr_items = [v.strip() for v in curr_val.split(",")]
+    def print_section_header(self, section):
+        if self.fmt == 'ini':
+            print "[%s]" % section
         else:
-            curr_items = curr_val.split(sep)
+            print section
 
-    if mode == "--set":
-        if item not in curr_items:
-            curr_items.append(item)
-    elif mode == "--del":
+    def print_name_value(self, name, value, section=None):
+        if self.fmt == 'lines':
+            # Both unambiguous and easily parseable by shell. Caveat is
+            # that sections and values with spaces are awkward to split in shell
+            if section:
+                line = '[ %s ]' % section
+                if name:
+                    line += ' '
+            if name:
+                line += '%s' % name
+            if value:
+                line += ' = %s' % value.replace('\n','\\n')
+            print line
+        elif self.fmt == 'sh':
+            # Note we provide validation of the output indentifiers
+            # as it's dangerous to leave validation to shell.
+            # consider for example doing eval on this in shell:
+            #   rm -Rf /;oops=val
+            if not self.valid_sh_identifier(name):
+                error('Inavlid sh identifier: %s' % name)
+                sys.exit(1)
+            sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
+        elif self.fmt == 'ini':
+            print name, '=', value.replace('\n','\n ')
+        else:
+            print name or value
+
+    def parse_options(self):
         try:
-            curr_items.remove(item)
-        except ValueError:
+            long_options = ['set', 'del', 'get', 'list', 'list-sep=', 'merge',
+                            'existing', 'format=', 'output=', 'inplace', 'help', 'version']
+            opts, args = getopt.getopt(sys.argv[1:], '', long_options)
+        except getopt.GetoptError, e:
+            error(str(e))
+            self.usage(1)
+
+        for o, a in opts:
+            if o in ('--help',):
+                self.usage(0)
+            elif o in ('--version',):
+                print 'crudini 0.4'
+                sys.exit(0)
+            elif o in ('--set', '--del', '--get', '--merge'):
+                if self.mode:
+                    error('Only one of --set|--del|--get|--merge can be specified')
+                    self.usage(1)
+                self.mode = o
+            elif o in ('--format',):
+                self.fmt = a
+                if self.fmt not in ('sh','ini','lines'):
+                    error('--format not recognized: %s' % fmt)
+                    self.usage(1)
+            elif o in ('--existing',):
+                self.update = True
+            elif o in ('--inplace',):
+                self.inplace = True
+            elif o in ('--list',):
+                self.vlist = "set" #TODO support combos of list, sorted, ...
+            elif o in ('--list-sep',):
+                self.listsep = a
+            elif o in ('--output',):
+                self.output = a
+
+        if not self.mode:
+            error('One of --set|--del|--get|--merge must be specified')
+            self.usage(1)
+
+        try:
+            self.cfgfile = args[0]
+            self.section = args[1]
+            self.param = args[2]
+            self.value = args[3]
+        except IndexError:
             pass
 
-    if sep is None:
-        sep = ","
-        if use_space:
-            sep += " "
+        if not self.output:
+            self.output = self.cfgfile
 
-    return sep.join(curr_items)
+        if self.cfgfile is None:
+            self.usage(1)
+        if self.section is None and self.mode in ('--del', '--set'):
+            self.usage(1)
+        if self.param is not None and self.mode in ('--merge',):
+            self.usage(1)
+        if self.value is not None and self.mode not in ('--set',):
+            if not (self.mode == '--del' and self.vlist):
+                error('A value should not be specified with %s' % self.mode)
+                self.usage(1)
 
-def set_name_value(section, param, value):
-    curr_val = None
+        if self.mode == '--merge' and self.fmt == 'sh':
+            # I'm not sure how useful is is to support this.
+            # printenv will already generate a mostly compat ini format.
+            # If you want to also include non exported vars (from `set`),
+            # then there is a format change.
+            error('sh format input is not supported at present')
+            sys.exit(1)
 
-    if update:
-        if param is None:
-            _sec = section == iniparse.DEFAULTSECT or conf.has_section(section)
-            if not _sec:
-                raise ConfigParser.NoSectionError(section)
-        else:
-            curr_val = conf.get(section, param)
-    elif section != iniparse.DEFAULTSECT and not conf.has_section(section):
-        if mode == "--del":
-            raise ConfigParser.NoSectionError(section)
-        else:
-            conf.add_section(section)
-
-    if param is not None:
-        if not update:
-            try:
-                curr_val = conf.get(section, param)
-            except ConfigParser.NoOptionError:
-                if mode == "--del":
-                    return
-        if value is None:
-            value = ''
-        if vlist:
-            value = update_list(curr_val, value, mode, listsep)
-        conf.set(section, param, value)
-
-@contextlib.contextmanager
-def remove_file_on_error(path):
-    """Protect code that wants to operate on PATH atomically.
-    Any exception will cause PATH to be removed.
-    """
-    try:
-        yield
-    except Exception:
-        t, v, tb = sys.exc_info()
-        delete_if_exists(path)
-        raise t, v, tb
-
-def file_replace(name, data):
-    """Replace file as atomically as possible,
-    fulfilling and AC properties of ACID.
-    This is essentially using method 9 from:
-    http://www.pixelbeat.org/docs/unix_file_replacement.html
-
-    Caveats:
-     - Changes ownership of the file being edited
-       by non root users (due to POSIX interface limitations).
-     - Loses any extended attributes of the original file
-       (due to the simplicity of this implementation).
-     - Existing hardlinks will be separated from the
-       newly replaced file.
-     - Ignores the write permissions of the original file.
-     - Requires write permission on the directory as well as the file.
-     - With python2 on windows we don't fulfill the A ACID property.
-
-    To avoid the above caveats see the --inplace option.
-    """
-    (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
-
-    with remove_file_on_error(tmp):
-        shutil.copystat(name, tmp)
-
-        if hasattr(os, 'fchown') and os.geteuid() == 0:
-            st = os.stat(name)
-            os.fchown(f, st.st_uid, st.st_gid)
-
-        os.write(f, data)
-        os.close(f)
-
-        if hasattr(os,'replace'): # >= python 3.3
-            os.replace(tmp, name) # atomic even on windos
-        elif os.name == 'posix':
-            os.rename(tmp, name) # atomic on POSIX
-        else:
-            backup = tmp+'.backup'
-            os.rename(name, backup)
-            os.rename(tmp, name)
-            delete_if_exists(backup)
-
-def file_rewrite(name, data):
-    """Rewrite file inplace avoiding the caveats
-    noted in file_replace().
-
-    Caveats:
-     - Not Atomic as readers may see incomplete data for a while.
-     - Not Consistent as multiple writers may overlap.
-     - Less Durable as exisiting data truncated before I/O completes.
-     - Requires write access to file rather than write access to dir.
-    """
-    with open(name, 'w') as f:
-        f.write(data)
-
-def init_iniparse_defaultsect():
-    try:
-        iniparse.DEFAULTSECT
-    except AttributeError:
-        iniparse.DEFAULTSECT = 'DEFAULT'
-
-def main():
-    global mode, fmt, update, inplace, cfgfile, output, section, param
-    global value, vlist, listsep
-
-    global stdin
-
-    global locked_file
-    global section_explicit_default
-    global conf
-    global added_default_section
-
-    if sys.stdin.isatty():
-        sys.excepthook=cli_exception
-
-    init_iniparse_defaultsect()
-    parse_options()
-
-    section_explicit_default = False
-    if section == '':
-        section = iniparse.DEFAULTSECT
-    elif section == iniparse.DEFAULTSECT:
-        section_explicit_default = True
-
-
-    if mode == '--merge':
-        stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
-        mconf = parse_file('-', preserve_case=True)
-
-    madded_default_section = added_default_section
-    conf = parse_file(cfgfile)
-    # Take the [DEFAULT] header from the input if present
-    if mode == '--merge' and not update \
-       and not madded_default_section and mconf.items(iniparse.DEFAULTSECT):
-        added_default_section = madded_default_section
-
-    try:
-        if mode == '--set':
-            set_name_value(section, param, value)
-        elif mode == '--merge':
-            for msection in [iniparse.DEFAULTSECT] + mconf.sections():
-                if msection == iniparse.DEFAULTSECT:
-                    defaults_to_strip = {}
-                else:
-                    defaults_to_strip = mconf.defaults()
-                items = mconf.items(msection)
-                set_param = False
-                for item in items:
-                    # XXX: Note this doesn't update an item in section
-                    # if matching value also in default (global) section.
-                    if defaults_to_strip.get(item[0]) != item[1]:
-                        ignore_errs = (ConfigParser.NoOptionError,)
-                        if section is not None:
-                            msection = section
-                        elif not update:
-                            ignore_errs += (ConfigParser.NoSectionError,)
-                        try:
-                            set_param = True
-                            set_name_value(msection, item[0], item[1])
-                        except ignore_errs:
-                            pass
-                # For empty sections ensure the section header is added
-                if not set_param and section is None:
-                    set_name_value(msection, None, None)
-        elif mode == '--del':
-            if param is None:
-                if section == iniparse.DEFAULTSECT:
-                    for name in conf.defaults():
-                        conf.remove_option(iniparse.DEFAULTSECT, name)
-                else:
-                    if not conf.remove_section(section) and update:
-                        raise ConfigParser.NoSectionError(section)
-            elif value is None:
-                if not conf.remove_option(section, param) and update:
-                    raise ConfigParser.NoOptionError(section, param)
-            else: # remove item from list
-                set_name_value(section, param, value)
-        elif mode == '--get' and fmt != 'lines':
-            if section is None:
-                if conf.defaults():
-                    print_section_header(iniparse.DEFAULTSECT)
-                for item in conf.sections():
-                    print_section_header(item)
-            elif param is None:
-                if fmt == 'ini':
-                    print_section_header(section)
-                if section == iniparse.DEFAULTSECT:
-                    defaults_to_strip = {}
-                else:
-                    defaults_to_strip = conf.defaults()
-                for item in conf.items(section):
-                    # XXX: Note this strips an item from section
-                    # if matching value also in default (global) section.
-                    if defaults_to_strip.get(item[0]) != item[1]:
-                        if fmt:
-                            val = item[1]
-                        else:
-                            val = None
-                        print_name_value(item[0], val)
-            else:
-                val = conf.get(section, param)
-                if fmt:
-                    name = param
-                else:
-                    name = None
-                print_name_value(name, val)
-        elif mode == '--get' and fmt == 'lines':
-            if section is None:
-                sections = conf.sections()
-                if conf.defaults():
-                    sections.insert(0, iniparse.DEFAULTSECT)
-            else:
-                sections = (section,)
-            if param is not None:
-                val = conf.get(section, param)
-                print_name_value(param, val, section)
-            else:
-                for section in sections:
-                    if section == iniparse.DEFAULTSECT:
-                        defaults_to_strip = {}
-                    else:
-                        defaults_to_strip = conf.defaults()
-                    items = False
-                    for item in conf.items(section):
-                        # XXX: Note this strips an item from section
-                        # if matching value also in default (global) section.
-                        if defaults_to_strip.get(item[0]) != item[1]:
-                            val = item[1]
-                            print_name_value(item[0], val, section)
-                            items = True
-                    if not items:
-                        print_name_value(None, None, section)
-
-    except ConfigParser.NoSectionError as e:
-        error('Section not found: %s' % e.section)
-        sys.exit(1)
-    except ConfigParser.NoOptionError:
-        error('Parameter not found: %s' % param)
-        sys.exit(1)
-
-    if mode != '--get':
-        # XXX: Ideally we should just do conf.write(f) here,
-        # but to avoid iniparse issues, we massage the data a little here
-        str_data = str(conf.data)
-        if len(str_data) and str_data[-1] != '\n':
-            str_data += '\n'
-
-        if (
-            (added_default_section and not (section_explicit_default and mode in ('--set', '--merge')))
-            or (mode == '--del' and section == iniparse.DEFAULTSECT and param is None)
-            ):
-            str_data = str_data.replace('[%s]\n' % iniparse.DEFAULTSECT, '', 1)
-
+    def has_default_section(self, locked_file):
         try:
-            if output == '-':
-                sys.stdout.write(str_data)
+            if locked_file is None:
+                fp = StringIO(self.stdin)
             else:
-                file_edit = file_rewrite if inplace else file_replace
-                file_edit(output, str_data)
+                fp = locked_file.fp
+
+            for line in fp:
+                if line.startswith('[%s]' % iniparse.DEFAULTSECT):
+                    return True
+
+            return False
+
+        except IOError as e:
+            error(str(e))
+            sys.exit(1)
+        finally:
+            fp.seek(0)
+
+    def _parse_file(self, filename, add_default=False, preserve_case=False):
+        try:
+            if filename == '-':
+                fp = StringIO(self.stdin)
+            else:
+                fp = self.locked_file.fp
+            if add_default:
+                fp = AddDefaultSection(fp)
+            conf = CrudiniConfigParser(preserve_case=preserve_case)
+            conf.readfp(fp)
+            return conf
         except EnvironmentError as e:
             error(str(e))
             sys.exit(1)
+        finally:
+            fp.seek(0) # in case we need to reparse
+
+    def parse_file(self, filename, preserve_case=False):
+        self.added_default_section = False
+
+        if filename != '-':
+            self.locked_file = LockedFile(filename, self.mode, self.inplace)
+
+        try:
+            conf = self._parse_file(filename, preserve_case=preserve_case)
+
+            if not conf.items(iniparse.DEFAULTSECT):
+                # Check if there is just [DEFAULT] in a file with no
+                # name=values to avoid adding a duplicate section.
+                if not self.has_default_section(self.locked_file):
+                    # reparse with inserted [DEFAULT] to be able to add global opts etc.
+                    conf = self._parse_file(filename, add_default=True,
+                                       preserve_case=preserve_case)
+                    self.added_default_section = True
+
+        except ConfigParser.MissingSectionHeaderError:
+            conf = self._parse_file(filename, add_default=True, preserve_case=preserve_case)
+            self.added_default_section = True
+        except ConfigParser.ParsingError as e:
+            error(str(e))
+            sys.exit(1)
+
+        return conf
+
+    # TODO item should be items and split also
+    # especially in merge mode
+    def update_list(self, curr_val, item, mode, sep):
+        curr_items = []
+        use_space = True
+        if curr_val:
+            if sep is None:
+                use_space = ' ' in curr_val or ',' not in curr_val
+                curr_items = [v.strip() for v in curr_val.split(",")]
+            else:
+                curr_items = curr_val.split(sep)
+
+        if self.mode == "--set":
+            if item not in curr_items:
+                curr_items.append(item)
+        elif self.mode == "--del":
+            try:
+                curr_items.remove(item)
+            except ValueError:
+                pass
+
+        if sep is None:
+            sep = ","
+            if use_space:
+                sep += " "
+
+        return sep.join(curr_items)
+
+    def set_name_value(self, section, param, value):
+        curr_val = None
+
+        if self.update:
+            if param is None:
+                _sec = section == iniparse.DEFAULTSECT or self.conf.has_section(section)
+                if not _sec:
+                    raise ConfigParser.NoSectionError(section)
+            else:
+                curr_val = self.conf.get(section, param)
+        elif section != iniparse.DEFAULTSECT and not self.conf.has_section(section):
+            if self.mode == "--del":
+                raise ConfigParser.NoSectionError(section)
+            else:
+                self.conf.add_section(section)
+
+        if param is not None:
+            if not self.update:
+                try:
+                    curr_val = self.conf.get(section, param)
+                except ConfigParser.NoOptionError:
+                    if self.mode == "--del":
+                        return
+            if value is None:
+                value = ''
+            if self.vlist:
+                value = self.update_list(curr_val, value, self.mode, self.listsep)
+            self.conf.set(section, param, value)
+
+    @contextlib.contextmanager
+    def remove_file_on_error(self, path):
+        """Protect code that wants to operate on PATH atomically.
+        Any exception will cause PATH to be removed.
+        """
+        try:
+            yield
+        except Exception:
+            t, v, tb = sys.exc_info()
+            delete_if_exists(path)
+            raise t, v, tb
+
+    def file_replace(self, name, data):
+        """Replace file as atomically as possible,
+        fulfilling and AC properties of ACID.
+        This is essentially using method 9 from:
+        http://www.pixelbeat.org/docs/unix_file_replacement.html
+
+        Caveats:
+         - Changes ownership of the file being edited
+           by non root users (due to POSIX interface limitations).
+         - Loses any extended attributes of the original file
+           (due to the simplicity of this implementation).
+         - Existing hardlinks will be separated from the
+           newly replaced file.
+         - Ignores the write permissions of the original file.
+         - Requires write permission on the directory as well as the file.
+         - With python2 on windows we don't fulfill the A ACID property.
+
+        To avoid the above caveats see the --inplace option.
+        """
+        (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
+
+        with self.remove_file_on_error(tmp):
+            shutil.copystat(name, tmp)
+
+            if hasattr(os, 'fchown') and os.geteuid() == 0:
+                st = os.stat(name)
+                os.fchown(f, st.st_uid, st.st_gid)
+
+            os.write(f, data)
+            os.close(f)
+
+            if hasattr(os,'replace'): # >= python 3.3
+                os.replace(tmp, name) # atomic even on windos
+            elif os.name == 'posix':
+                os.rename(tmp, name) # atomic on POSIX
+            else:
+                backup = tmp+'.backup'
+                os.rename(name, backup)
+                os.rename(tmp, name)
+                delete_if_exists(backup)
+
+    def file_rewrite(self, name, data):
+        """Rewrite file inplace avoiding the caveats
+        noted in file_replace().
+
+        Caveats:
+         - Not Atomic as readers may see incomplete data for a while.
+         - Not Consistent as multiple writers may overlap.
+         - Less Durable as exisiting data truncated before I/O completes.
+         - Requires write access to file rather than write access to dir.
+        """
+        with open(name, 'w') as f:
+            f.write(data)
+
+    def init_iniparse_defaultsect(self):
+        try:
+            iniparse.DEFAULTSECT
+        except AttributeError:
+            iniparse.DEFAULTSECT = 'DEFAULT'
+
+    def run(self):
+        if sys.stdin.isatty():
+            sys.excepthook = self.cli_exception
+
+        self.init_iniparse_defaultsect()
+        self.parse_options()
+
+        self.section_explicit_default = False
+        if self.section == '':
+            self.section = iniparse.DEFAULTSECT
+        elif self.section == iniparse.DEFAULTSECT:
+            self.section_explicit_default = True
+
+        if self.mode == '--merge':
+            self.stdin = sys.stdin.read() # read all upfront so that we can reparse if needed
+            self.mconf = self.parse_file('-', preserve_case=True)
+
+        self.madded_default_section = self.added_default_section
+        self.conf = self.parse_file(self.cfgfile)
+        # Take the [DEFAULT] header from the input if present
+        if self.mode == '--merge' and not self.update \
+           and not self.madded_default_section and self.mconf.items(iniparse.DEFAULTSECT):
+            self.added_default_section = self.madded_default_section
+
+        try:
+            if self.mode == '--set':
+                self.set_name_value(self.section, self.param, self.value)
+            elif self.mode == '--merge':
+                for msection in [iniparse.DEFAULTSECT] + self.mconf.sections():
+                    if msection == iniparse.DEFAULTSECT:
+                        defaults_to_strip = {}
+                    else:
+                        defaults_to_strip = self.mconf.defaults()
+                    items = self.mconf.items(msection)
+                    set_param = False
+                    for item in items:
+                        # XXX: Note this doesn't update an item in section
+                        # if matching value also in default (global) section.
+                        if defaults_to_strip.get(item[0]) != item[1]:
+                            ignore_errs = (ConfigParser.NoOptionError,)
+                            if self.section is not None:
+                                msection = self.section
+                            elif not self.update:
+                                ignore_errs += (ConfigParser.NoSectionError,)
+                            try:
+                                set_param = True
+                                self.set_name_value(msection, item[0], item[1])
+                            except ignore_errs:
+                                pass
+                    # For empty sections ensure the section header is added
+                    if not set_param and self.section is None:
+                        self.set_name_value(msection, None, None)
+            elif self.mode == '--del':
+                if self.param is None:
+                    if self.section == iniparse.DEFAULTSECT:
+                        for name in self.conf.defaults():
+                            self.conf.remove_option(iniparse.DEFAULTSECT, name)
+                    else:
+                        if not self.conf.remove_section(self.section) and self.update:
+                            raise ConfigParser.NoSectionError(self.section)
+                elif self.value is None:
+                    if not self.conf.remove_option(self.section, self.param) and self.update:
+                        raise ConfigParser.NoOptionError(self.section, self.param)
+                else: # remove item from list
+                    self.set_name_value(self.section, self.param, self.value)
+            elif self.mode == '--get' and self.fmt != 'lines':
+                if self.section is None:
+                    if self.conf.defaults():
+                        self.print_section_header(iniparse.DEFAULTSECT)
+                    for item in self.conf.sections():
+                        self.print_section_header(item)
+                elif self.param is None:
+                    if self.fmt == 'ini':
+                        self.print_section_header(self.section)
+                    if self.section == iniparse.DEFAULTSECT:
+                        defaults_to_strip = {}
+                    else:
+                        defaults_to_strip = self.conf.defaults()
+                    for item in self.conf.items(self.section):
+                        # XXX: Note this strips an item from section
+                        # if matching value also in default (global) section.
+                        if defaults_to_strip.get(item[0]) != item[1]:
+                            if self.fmt:
+                                val = item[1]
+                            else:
+                                val = None
+                            self.print_name_value(item[0], val)
+                else:
+                    val = self.conf.get(self.section, self.param)
+                    if self.fmt:
+                        name = self.param
+                    else:
+                        name = None
+                    self.print_name_value(name, val)
+            elif self.mode == '--get' and self.fmt == 'lines':
+                if self.section is None:
+                    sections = self.conf.sections()
+                    if self.conf.defaults():
+                        sections.insert(0, iniparse.DEFAULTSECT)
+                else:
+                    sections = (self.section,)
+                if self.param is not None:
+                    val = self.conf.get(self.section, self.param)
+                    self.print_name_value(self.param, val, self.section)
+                else:
+                    for section in sections:
+                        if section == iniparse.DEFAULTSECT:
+                            defaults_to_strip = {}
+                        else:
+                            defaults_to_strip = self.conf.defaults()
+                        items = False
+                        for item in self.conf.items(section):
+                            # XXX: Note this strips an item from section
+                            # if matching value also in default (global) section.
+                            if defaults_to_strip.get(item[0]) != item[1]:
+                                val = item[1]
+                                self.print_name_value(item[0], val, section)
+                                items = True
+                        if not items:
+                            self.print_name_value(None, None, section)
+
+        except ConfigParser.NoSectionError as e:
+            error('Section not found: %s' % e.section)
+            sys.exit(1)
+        except ConfigParser.NoOptionError:
+            error('Parameter not found: %s' % param)
+            sys.exit(1)
+
+        if self.mode != '--get':
+            # XXX: Ideally we should just do conf.write(f) here,
+            # but to avoid iniparse issues, we massage the data a little here
+            str_data = str(self.conf.data)
+            if len(str_data) and str_data[-1] != '\n':
+                str_data += '\n'
+
+            if (
+                (self.added_default_section and not (self.section_explicit_default and self.mode in ('--set', '--merge')))
+                or (self.mode == '--del' and self.section == iniparse.DEFAULTSECT and self.param is None)
+                ):
+                str_data = str_data.replace('[%s]\n' % iniparse.DEFAULTSECT, '', 1)
+
+            try:
+                if self.output == '-':
+                    sys.stdout.write(str_data)
+                else:
+                    file_edit = self.file_rewrite if self.inplace else self.file_replace
+                    file_edit(self.output, str_data)
+            except EnvironmentError as e:
+                error(str(e))
+                sys.exit(1)
+
+def main():
+    crudini = Crudini()
+    return crudini.run()
 
 if __name__ == "__main__":
     sys.exit(main())
