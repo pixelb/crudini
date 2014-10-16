@@ -10,6 +10,7 @@
 
 from cStringIO import StringIO
 
+import atexit
 import ConfigParser
 import contextlib
 import errno
@@ -125,6 +126,8 @@ class LockedFile(FileLock):
 
         FileLock.__init__(self, operation != "--get", not inplace)
 
+        atexit.register(self.delete)
+
         if inplace:
             self.lockpath = filename
         else:
@@ -150,9 +153,9 @@ class LockedFile(FileLock):
             error(str(e))
             sys.exit(1)
 
-    def __del__(self):
-        # explicit close so closed in correct order
-        # if taking lock multiple times
+    def delete(self):
+        # explicit close so closed in correct order if taking lock multiple times,
+        # and also explicit "delete" needed to avoid implicit __del__ after os module is unloaded.
         self.unlock()
         if self.fp:
             self.fp.close()
