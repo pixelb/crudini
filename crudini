@@ -489,6 +489,72 @@ def set_name_value(section, param, value):
             value = update_list(curr_val, value, mode, listsep)
         conf.set(section, param, value)
 
+@contextlib.contextmanager
+def remove_file_on_error(path):
+    """Protect code that wants to operate on PATH atomically.
+    Any exception will cause PATH to be removed.
+    """
+    try:
+        yield
+    except Exception:
+        t, v, tb = sys.exc_info()
+        delete_if_exists(path)
+        raise t, v, tb
+
+def file_replace(name, data):
+    """Replace file as atomically as possible,
+    fulfilling and AC properties of ACID.
+    This is essentially using method 9 from:
+    http://www.pixelbeat.org/docs/unix_file_replacement.html
+
+    Caveats:
+     - Changes ownership of the file being edited
+       by non root users (due to POSIX interface limitations).
+     - Loses any extended attributes of the original file
+       (due to the simplicity of this implementation).
+     - Existing hardlinks will be separated from the
+       newly replaced file.
+     - Ignores the write permissions of the original file.
+     - Requires write permission on the directory as well as the file.
+     - With python2 on windows we don't fulfill the A ACID property.
+
+    To avoid the above caveats see the --inplace option.
+    """
+    (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
+
+    with remove_file_on_error(tmp):
+        shutil.copystat(name, tmp)
+
+        if hasattr(os, 'fchown') and os.geteuid() == 0:
+            st = os.stat(name)
+            os.fchown(f, st.st_uid, st.st_gid)
+
+        os.write(f, data)
+        os.close(f)
+
+        if hasattr(os,'replace'): # >= python 3.3
+            os.replace(tmp, name) # atomic even on windos
+        elif os.name == 'posix':
+            os.rename(tmp, name) # atomic on POSIX
+        else:
+            backup = tmp+'.backup'
+            os.rename(name, backup)
+            os.rename(tmp, name)
+            delete_if_exists(backup)
+
+def file_rewrite(name, data):
+    """Rewrite file inplace avoiding the caveats
+    noted in file_replace().
+
+    Caveats:
+     - Not Atomic as readers may see incomplete data for a while.
+     - Not Consistent as multiple writers may overlap.
+     - Less Durable as exisiting data truncated before I/O completes.
+     - Requires write access to file rather than write access to dir.
+    """
+    with open(name, 'w') as f:
+        f.write(data)
+
 try:
     if mode == '--set':
         set_name_value(section, param, value)
@@ -592,72 +658,6 @@ except ConfigParser.NoSectionError as e:
 except ConfigParser.NoOptionError:
     error('Parameter not found: %s' % param)
     sys.exit(1)
-
-@contextlib.contextmanager
-def remove_file_on_error(path):
-    """Protect code that wants to operate on PATH atomically.
-    Any exception will cause PATH to be removed.
-    """
-    try:
-        yield
-    except Exception:
-        t, v, tb = sys.exc_info()
-        delete_if_exists(path)
-        raise t, v, tb
-
-def file_replace(name, data):
-    """Replace file as atomically as possible,
-    fulfilling and AC properties of ACID.
-    This is essentially using method 9 from:
-    http://www.pixelbeat.org/docs/unix_file_replacement.html
-
-    Caveats:
-     - Changes ownership of the file being edited
-       by non root users (due to POSIX interface limitations).
-     - Loses any extended attributes of the original file
-       (due to the simplicity of this implementation).
-     - Existing hardlinks will be separated from the
-       newly replaced file.
-     - Ignores the write permissions of the original file.
-     - Requires write permission on the directory as well as the file.
-     - With python2 on windows we don't fulfill the A ACID property.
-
-    To avoid the above caveats see the --inplace option.
-    """
-    (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
-
-    with remove_file_on_error(tmp):
-        shutil.copystat(name, tmp)
-
-        if hasattr(os, 'fchown') and os.geteuid() == 0:
-            st = os.stat(name)
-            os.fchown(f, st.st_uid, st.st_gid)
-
-        os.write(f, data)
-        os.close(f)
-
-        if hasattr(os,'replace'): # >= python 3.3
-            os.replace(tmp, name) # atomic even on windos
-        elif os.name == 'posix':
-            os.rename(tmp, name) # atomic on POSIX
-        else:
-            backup = tmp+'.backup'
-            os.rename(name, backup)
-            os.rename(tmp, name)
-            delete_if_exists(backup)
-
-def file_rewrite(name, data):
-    """Rewrite file inplace avoiding the caveats
-    noted in file_replace().
-
-    Caveats:
-     - Not Atomic as readers may see incomplete data for a while.
-     - Not Consistent as multiple writers may overlap.
-     - Less Durable as exisiting data truncated before I/O completes.
-     - Requires write access to file rather than write access to dir.
-    """
-    with open(name, 'w') as f:
-        f.write(data)
 
 if mode != '--get':
     # XXX: Ideally we should just do conf.write(f) here,
