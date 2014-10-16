@@ -519,6 +519,12 @@ def file_rewrite(name, data):
     with open(name, 'w') as f:
         f.write(data)
 
+def init_iniparse_defaultsect():
+    try:
+        iniparse.DEFAULTSECT
+    except AttributeError:
+        iniparse.DEFAULTSECT = 'DEFAULT'
+
 _sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')
 mode = fmt = update = inplace = cfgfile = output = section = param = \
 value = vlist = listsep = None
@@ -527,11 +533,7 @@ stdin = ""
 
 locked_file = None
 
-try:
-    iniparse.DEFAULTSECT
-except AttributeError:
-    iniparse.DEFAULTSECT = 'DEFAULT'
-
+init_iniparse_defaultsect()
 parse_options()
 
 section_explicit_default = False
