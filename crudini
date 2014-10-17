@@ -286,6 +286,35 @@ class Crudini():
         except AttributeError:
             iniparse.DEFAULTSECT = 'DEFAULT'
 
+    # TODO item should be items and split also
+    # especially in merge mode
+    @staticmethod
+    def update_list(curr_val, item, mode, sep):
+        curr_items = []
+        use_space = True
+        if curr_val:
+            if sep is None:
+                use_space = ' ' in curr_val or ',' not in curr_val
+                curr_items = [v.strip() for v in curr_val.split(",")]
+            else:
+                curr_items = curr_val.split(sep)
+
+        if mode == "--set":
+            if item not in curr_items:
+                curr_items.append(item)
+        elif mode == "--del":
+            try:
+                curr_items.remove(item)
+            except ValueError:
+                pass
+
+        if sep is None:
+            sep = ","
+            if use_space:
+                sep += " "
+
+        return sep.join(curr_items)
+
     def usage(self, exitval=0):
         cmd = os.path.basename(sys.argv[0])
         output = sys.stderr if exitval else sys.stdout
@@ -477,34 +506,6 @@ class Crudini():
             sys.exit(1)
 
         return conf
-
-    # TODO item should be items and split also
-    # especially in merge mode
-    def update_list(self, curr_val, item, mode, sep):
-        curr_items = []
-        use_space = True
-        if curr_val:
-            if sep is None:
-                use_space = ' ' in curr_val or ',' not in curr_val
-                curr_items = [v.strip() for v in curr_val.split(",")]
-            else:
-                curr_items = curr_val.split(sep)
-
-        if self.mode == "--set":
-            if item not in curr_items:
-                curr_items.append(item)
-        elif self.mode == "--del":
-            try:
-                curr_items.remove(item)
-            except ValueError:
-                pass
-
-        if sep is None:
-            sep = ","
-            if use_space:
-                sep += " "
-
-        return sep.join(curr_items)
 
     def set_name_value(self, section, param, value):
         curr_val = None
