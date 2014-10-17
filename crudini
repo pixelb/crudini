@@ -660,7 +660,7 @@ class Crudini():
             error('Section not found: %s' % e.section)
             sys.exit(1)
         except ConfigParser.NoOptionError:
-            error('Parameter not found: %s' % param)
+            error('Parameter not found: %s' % self.param)
             sys.exit(1)
 
         if self.mode != '--get':
