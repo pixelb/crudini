@@ -397,7 +397,7 @@ class Crudini():
             elif o in ('--format',):
                 self.fmt = a
                 if self.fmt not in ('sh','ini','lines'):
-                    error('--format not recognized: %s' % fmt)
+                    error('--format not recognized: %s' % self.fmt)
                     self.usage(1)
             elif o in ('--existing',):
                 self.update = True

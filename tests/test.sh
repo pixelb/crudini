@@ -29,6 +29,7 @@ crudini --del test.ini '' 'name' 'val' 2>/dev/null && fail # value
 crudini --merge 2>/dev/null && fail # no file
 crudini --merge test.ini '' 'name' 2>/dev/null && fail # param
 crudini --del test.ini '' 'name' 'val' 2>/dev/null && fail # value
+crudini --get --format=ggg test.ini 2>&1 | grep -q 'format not recognized' || fail
 ok
 
 # --set -------------------------------------------------
