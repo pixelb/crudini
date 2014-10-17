@@ -490,10 +490,10 @@ class Crudini():
             else:
                 curr_items = curr_val.split(sep)
 
-        if self.mode == "--set":
+        if mode == "--set":
             if item not in curr_items:
                 curr_items.append(item)
-        elif self.mode == "--del":
+        elif mode == "--del":
             try:
                 curr_items.remove(item)
             except ValueError:
