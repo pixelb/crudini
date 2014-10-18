@@ -182,6 +182,80 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
         if preserve_case:
             self.optionxform = str
 
+class Print():
+    """Use for default output format."""
+
+    def section_header(self, section):
+        """Print section header.
+
+        :param section: str
+        """
+
+        print section
+
+    def name_value(self, name, value, section=None):
+        """Print parameter.
+
+        :param name: str
+        :param value: str
+        :param section: str (default 'None')
+        """
+
+        print name or value
+
+class PrintIni(Print):
+    """Use for ini output format."""
+
+    def section_header(self, section):
+        print "[%s]" % section
+
+    def name_value(self, name, value, section=None):
+        print name, '=', value.replace('\n','\n ')
+
+class PrintLines(Print):
+    """Use for lines output format."""
+
+    def name_value(self, name, value, section=None):
+        # Both unambiguous and easily parseable by shell. Caveat is
+        # that sections and values with spaces are awkward to split in shell
+        if section:
+            line = '[ %s ]' % section
+            if name:
+                line += ' '
+        if name:
+            line += '%s' % name
+        if value:
+            line += ' = %s' % value.replace('\n','\\n')
+        print line
+
+class PrintSh(Print):
+    """Use for shell output format."""
+
+    @staticmethod
+    def _valid_sh_identifier(i,
+        sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')):
+        """Provide validation of the output indentifiers as it's dangerous to
+        leave validation to shell. Consider for example doing eval on this in
+        shell: rm -Rf /;oops=val
+
+        :param i: str
+        :param sh_safe_id_chars: frozenset
+        :return: bool
+        """
+
+        if i[0] in string.digits:
+            return False
+        for c in i:
+            if c not in sh_safe_id_chars:
+                return False
+        return True
+
+    def name_value(self, name, value, section=None):
+        if not PrintSh._valid_sh_identifier(name):
+            error('Inavlid sh identifier: %s' % name)
+            sys.exit(1)
+        sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
+
 class Crudini():
     mode = fmt = update = inplace = cfgfile = output = section = param = \
     value = vlist = listsep = None
@@ -192,6 +266,7 @@ class Crudini():
     section_explicit_default = False
     conf = None
     added_default_section = False
+    _print = None
 
     # The following exits cleanly on Ctrl-C,
     # while treating other exceptions as before.
@@ -199,16 +274,6 @@ class Crudini():
     def cli_exception(type, value, tb):
         if not issubclass(type, KeyboardInterrupt):
             sys.__excepthook__(type, value, tb)
-
-    @staticmethod
-    def valid_sh_identifier(i,
-        sh_safe_id_chars = frozenset(string.ascii_letters + string.digits + '_')):
-        if i[0] in string.digits:
-            return False
-        for c in i:
-            if c not in sh_safe_id_chars:
-                return False
-        return True
 
     @staticmethod
     @contextlib.contextmanager
@@ -341,39 +406,6 @@ class Crudini():
         )
         sys.exit(exitval)
 
-    def print_section_header(self, section):
-        if self.fmt == 'ini':
-            print "[%s]" % section
-        else:
-            print section
-
-    def print_name_value(self, name, value, section=None):
-        if self.fmt == 'lines':
-            # Both unambiguous and easily parseable by shell. Caveat is
-            # that sections and values with spaces are awkward to split in shell
-            if section:
-                line = '[ %s ]' % section
-                if name:
-                    line += ' '
-            if name:
-                line += '%s' % name
-            if value:
-                line += ' = %s' % value.replace('\n','\\n')
-            print line
-        elif self.fmt == 'sh':
-            # Note we provide validation of the output indentifiers
-            # as it's dangerous to leave validation to shell.
-            # consider for example doing eval on this in shell:
-            #   rm -Rf /;oops=val
-            if not self.valid_sh_identifier(name):
-                error('Inavlid sh identifier: %s' % name)
-                sys.exit(1)
-            sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
-        elif self.fmt == 'ini':
-            print name, '=', value.replace('\n','\n ')
-        else:
-            print name or value
-
     def parse_options(self):
         try:
             long_options = ['set', 'del', 'get', 'list', 'list-sep=', 'merge',
@@ -443,6 +475,15 @@ class Crudini():
             # then there is a format change.
             error('sh format input is not supported at present')
             sys.exit(1)
+
+        if self.fmt == 'lines':
+            self._print = PrintLines()
+        elif self.fmt == 'sh':
+            self._print = PrintSh()
+        elif self.fmt == 'ini':
+            self._print = PrintIni()
+        else:
+            self._print = Print()
 
     def has_default_section(self, locked_file):
         try:
@@ -604,12 +645,12 @@ class Crudini():
             elif self.mode == '--get' and self.fmt != 'lines':
                 if self.section is None:
                     if self.conf.defaults():
-                        self.print_section_header(iniparse.DEFAULTSECT)
+                        self._print.section_header(iniparse.DEFAULTSECT)
                     for item in self.conf.sections():
-                        self.print_section_header(item)
+                        self._print.section_header(item)
                 elif self.param is None:
                     if self.fmt == 'ini':
-                        self.print_section_header(self.section)
+                        self._print.section_header(self.section)
                     if self.section == iniparse.DEFAULTSECT:
                         defaults_to_strip = {}
                     else:
@@ -622,14 +663,14 @@ class Crudini():
                                 val = item[1]
                             else:
                                 val = None
-                            self.print_name_value(item[0], val)
+                            self._print.name_value(item[0], val)
                 else:
                     val = self.conf.get(self.section, self.param)
                     if self.fmt:
                         name = self.param
                     else:
                         name = None
-                    self.print_name_value(name, val)
+                    self._print.name_value(name, val)
             elif self.mode == '--get' and self.fmt == 'lines':
                 if self.section is None:
                     sections = self.conf.sections()
@@ -639,7 +680,7 @@ class Crudini():
                     sections = (self.section,)
                 if self.param is not None:
                     val = self.conf.get(self.section, self.param)
-                    self.print_name_value(self.param, val, self.section)
+                    self._print.name_value(self.param, val, self.section)
                 else:
                     for section in sections:
                         if section == iniparse.DEFAULTSECT:
@@ -652,10 +693,10 @@ class Crudini():
                             # if matching value also in default (global) section.
                             if defaults_to_strip.get(item[0]) != item[1]:
                                 val = item[1]
-                                self.print_name_value(item[0], val, section)
+                                self._print.name_value(item[0], val, section)
                                 items = True
                         if not items:
-                            self.print_name_value(None, None, section)
+                            self._print.name_value(None, None, section)
 
         except ConfigParser.NoSectionError as e:
             error('Section not found: %s' % e.section)
