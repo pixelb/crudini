@@ -578,9 +578,13 @@ class Crudini():
             self.conf.set(section, param, value)
 
     def command_set(self):
+        """Insert a section/parameter."""
+
         self.set_name_value(self.section, self.param, self.value)
 
     def command_merge(self):
+        """Merge an ini file from another ini."""
+
         for msection in [iniparse.DEFAULTSECT] + self.mconf.sections():
             if msection == iniparse.DEFAULTSECT:
                 defaults_to_strip = {}
@@ -607,6 +611,8 @@ class Crudini():
                 self.set_name_value(msection, None, None)
 
     def command_del(self):
+        """Delete a section/parameter."""
+
         if self.param is None:
             if self.section == iniparse.DEFAULTSECT:
                 for name in self.conf.defaults():
@@ -621,6 +627,8 @@ class Crudini():
             self.set_name_value(self.section, self.param, self.value)
 
     def command_get(self):
+        """Output a section/parameter"""
+
         if self.fmt != 'lines':
             if self.section is None:
                 if self.conf.defaults():
