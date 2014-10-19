@@ -577,6 +577,114 @@ class Crudini():
                 value = self.update_list(curr_val, value, self.mode, self.listsep)
             self.conf.set(section, param, value)
 
+    def command_set(self):
+        """Insert a section/parameter."""
+
+        self.set_name_value(self.section, self.param, self.value)
+
+    def command_merge(self):
+        """Merge an ini file from another ini."""
+
+        for msection in [iniparse.DEFAULTSECT] + self.mconf.sections():
+            if msection == iniparse.DEFAULTSECT:
+                defaults_to_strip = {}
+            else:
+                defaults_to_strip = self.mconf.defaults()
+            items = self.mconf.items(msection)
+            set_param = False
+            for item in items:
+                # XXX: Note this doesn't update an item in section
+                # if matching value also in default (global) section.
+                if defaults_to_strip.get(item[0]) != item[1]:
+                    ignore_errs = (ConfigParser.NoOptionError,)
+                    if self.section is not None:
+                        msection = self.section
+                    elif not self.update:
+                        ignore_errs += (ConfigParser.NoSectionError,)
+                    try:
+                        set_param = True
+                        self.set_name_value(msection, item[0], item[1])
+                    except ignore_errs:
+                        pass
+            # For empty sections ensure the section header is added
+            if not set_param and self.section is None:
+                self.set_name_value(msection, None, None)
+
+    def command_del(self):
+        """Delete a section/parameter."""
+
+        if self.param is None:
+            if self.section == iniparse.DEFAULTSECT:
+                for name in self.conf.defaults():
+                    self.conf.remove_option(iniparse.DEFAULTSECT, name)
+            else:
+                if not self.conf.remove_section(self.section) and self.update:
+                    raise ConfigParser.NoSectionError(self.section)
+        elif self.value is None:
+            if not self.conf.remove_option(self.section, self.param) and self.update:
+                raise ConfigParser.NoOptionError(self.section, self.param)
+        else: # remove item from list
+            self.set_name_value(self.section, self.param, self.value)
+
+    def command_get(self):
+        """Output a section/parameter"""
+
+        if self.fmt != 'lines':
+            if self.section is None:
+                if self.conf.defaults():
+                    self._print.section_header(iniparse.DEFAULTSECT)
+                for item in self.conf.sections():
+                    self._print.section_header(item)
+            elif self.param is None:
+                if self.fmt == 'ini':
+                    self._print.section_header(self.section)
+                if self.section == iniparse.DEFAULTSECT:
+                    defaults_to_strip = {}
+                else:
+                    defaults_to_strip = self.conf.defaults()
+                for item in self.conf.items(self.section):
+                    # XXX: Note this strips an item from section
+                    # if matching value also in default (global) section.
+                    if defaults_to_strip.get(item[0]) != item[1]:
+                        if self.fmt:
+                            val = item[1]
+                        else:
+                            val = None
+                        self._print.name_value(item[0], val)
+            else:
+                val = self.conf.get(self.section, self.param)
+                if self.fmt:
+                    name = self.param
+                else:
+                    name = None
+                self._print.name_value(name, val)
+        else:
+            if self.section is None:
+                sections = self.conf.sections()
+                if self.conf.defaults():
+                    sections.insert(0, iniparse.DEFAULTSECT)
+            else:
+                sections = (self.section,)
+            if self.param is not None:
+                val = self.conf.get(self.section, self.param)
+                self._print.name_value(self.param, val, self.section)
+            else:
+                for section in sections:
+                    if section == iniparse.DEFAULTSECT:
+                        defaults_to_strip = {}
+                    else:
+                        defaults_to_strip = self.conf.defaults()
+                    items = False
+                    for item in self.conf.items(section):
+                        # XXX: Note this strips an item from section
+                        # if matching value also in default (global) section.
+                        if defaults_to_strip.get(item[0]) != item[1]:
+                            val = item[1]
+                            self._print.name_value(item[0], val, section)
+                            items = True
+                    if not items:
+                        self._print.name_value(None, None, section)
+
     def run(self):
         if sys.stdin.isatty():
             sys.excepthook = Crudini.cli_exception
@@ -603,101 +711,13 @@ class Crudini():
 
         try:
             if self.mode == '--set':
-                self.set_name_value(self.section, self.param, self.value)
+                self.command_set()
             elif self.mode == '--merge':
-                for msection in [iniparse.DEFAULTSECT] + self.mconf.sections():
-                    if msection == iniparse.DEFAULTSECT:
-                        defaults_to_strip = {}
-                    else:
-                        defaults_to_strip = self.mconf.defaults()
-                    items = self.mconf.items(msection)
-                    set_param = False
-                    for item in items:
-                        # XXX: Note this doesn't update an item in section
-                        # if matching value also in default (global) section.
-                        if defaults_to_strip.get(item[0]) != item[1]:
-                            ignore_errs = (ConfigParser.NoOptionError,)
-                            if self.section is not None:
-                                msection = self.section
-                            elif not self.update:
-                                ignore_errs += (ConfigParser.NoSectionError,)
-                            try:
-                                set_param = True
-                                self.set_name_value(msection, item[0], item[1])
-                            except ignore_errs:
-                                pass
-                    # For empty sections ensure the section header is added
-                    if not set_param and self.section is None:
-                        self.set_name_value(msection, None, None)
+                self.command_merge()
             elif self.mode == '--del':
-                if self.param is None:
-                    if self.section == iniparse.DEFAULTSECT:
-                        for name in self.conf.defaults():
-                            self.conf.remove_option(iniparse.DEFAULTSECT, name)
-                    else:
-                        if not self.conf.remove_section(self.section) and self.update:
-                            raise ConfigParser.NoSectionError(self.section)
-                elif self.value is None:
-                    if not self.conf.remove_option(self.section, self.param) and self.update:
-                        raise ConfigParser.NoOptionError(self.section, self.param)
-                else: # remove item from list
-                    self.set_name_value(self.section, self.param, self.value)
-            elif self.mode == '--get' and self.fmt != 'lines':
-                if self.section is None:
-                    if self.conf.defaults():
-                        self._print.section_header(iniparse.DEFAULTSECT)
-                    for item in self.conf.sections():
-                        self._print.section_header(item)
-                elif self.param is None:
-                    if self.fmt == 'ini':
-                        self._print.section_header(self.section)
-                    if self.section == iniparse.DEFAULTSECT:
-                        defaults_to_strip = {}
-                    else:
-                        defaults_to_strip = self.conf.defaults()
-                    for item in self.conf.items(self.section):
-                        # XXX: Note this strips an item from section
-                        # if matching value also in default (global) section.
-                        if defaults_to_strip.get(item[0]) != item[1]:
-                            if self.fmt:
-                                val = item[1]
-                            else:
-                                val = None
-                            self._print.name_value(item[0], val)
-                else:
-                    val = self.conf.get(self.section, self.param)
-                    if self.fmt:
-                        name = self.param
-                    else:
-                        name = None
-                    self._print.name_value(name, val)
-            elif self.mode == '--get' and self.fmt == 'lines':
-                if self.section is None:
-                    sections = self.conf.sections()
-                    if self.conf.defaults():
-                        sections.insert(0, iniparse.DEFAULTSECT)
-                else:
-                    sections = (self.section,)
-                if self.param is not None:
-                    val = self.conf.get(self.section, self.param)
-                    self._print.name_value(self.param, val, self.section)
-                else:
-                    for section in sections:
-                        if section == iniparse.DEFAULTSECT:
-                            defaults_to_strip = {}
-                        else:
-                            defaults_to_strip = self.conf.defaults()
-                        items = False
-                        for item in self.conf.items(section):
-                            # XXX: Note this strips an item from section
-                            # if matching value also in default (global) section.
-                            if defaults_to_strip.get(item[0]) != item[1]:
-                                val = item[1]
-                                self._print.name_value(item[0], val, section)
-                                items = True
-                        if not items:
-                            self._print.name_value(None, None, section)
-
+                self.command_del()
+            elif self.mode == '--get':
+                self.command_get()
         except ConfigParser.NoSectionError as e:
             error('Section not found: %s' % e.section)
             sys.exit(1)
