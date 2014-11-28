@@ -168,7 +168,7 @@ class LockedFile(FileLock):
             if inplace:
                 self.fp = open(self.lockpath, open_mode)
                 # In general readers are protected by file_replace()
-                # but using read lock here gives AC of the ACID propserties
+                # but using read lock here gives AC of the ACID properties
                 # when only accessing the file through crudini even with
                 # file_rewrite().
                 self.lock()
@@ -255,7 +255,7 @@ class PrintSh(Print):
         i,
         safe_chars=frozenset(string.ascii_letters + string.digits + '_')
     ):
-        """Provide validation of the output indentifiers as it's dangerous to
+        """Provide validation of the output identifiers as it's dangerous to
         leave validation to shell. Consider for example doing eval on this in
         shell: rm -Rf /;oops=val
 
@@ -273,7 +273,7 @@ class PrintSh(Print):
 
     def name_value(self, name, value, section=None):
         if not PrintSh._valid_sh_identifier(name):
-            error('Inavlid sh identifier: %s' % name)
+            error('Invalid sh identifier: %s' % name)
             sys.exit(1)
         sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
 
@@ -326,7 +326,7 @@ class Crudini():
            newly replaced file.
          - Ignores the write permissions of the original file.
          - Requires write permission on the directory as well as the file.
-         - With python2 on windows we don't fulfill the A ACID property.
+         - With python2 on windows we don't fulfil the A ACID property.
 
         To avoid the above caveats see the --inplace option.
         """
@@ -360,7 +360,7 @@ class Crudini():
         Caveats:
          - Not Atomic as readers may see incomplete data for a while.
          - Not Consistent as multiple writers may overlap.
-         - Less Durable as exisiting data truncated before I/O completes.
+         - Less Durable as existing data truncated before I/O completes.
          - Requires write access to file rather than write access to dir.
         """
         with open(name, 'w') as f:
