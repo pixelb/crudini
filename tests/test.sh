@@ -45,10 +45,9 @@ crudini --set test.ini DEFAULT name val
 printf '%s\n' '[DEFAULT]' 'name = val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
-# Note blank line inserted at start
 :> test.ini
 crudini --set test.ini nonDEFAULT name val
-printf '%s\n' '' '[nonDEFAULT]' 'name = val' > good.ini
+printf '%s\n' '[nonDEFAULT]' 'name = val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 printf '%s\n' 'global=val' > test.ini
@@ -199,7 +198,7 @@ ok
 :> test.ini
 printf '%s\n' '[DEFAULT]' '#comment' '[section1]' |
 crudini --merge test.ini || fail
-printf '%s\n' '' '[section1]' > good.ini
+printf '%s\n' '[section1]' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 :> test.ini

@@ -608,6 +608,10 @@ Options:
             if self.mode == "--del":
                 raise ConfigParser.NoSectionError(section)
             else:
+                # Note this always adds a '\n' before the section name
+                # resulting in double spaced sections or blank line at
+                # the start of a new file to which a new section is added.
+                # We handle the empty file case at least when writing.
                 self.conf.add_section(section)
 
         if param is not None:
@@ -805,11 +809,14 @@ Options:
                     self.param is None
                 )
             ):
-                str_data = str_data.replace(
-                    '[%s]\n' % iniparse.DEFAULTSECT,
-                    '',
-                    1
-                )
+                # See note at add_section() call above detailing
+                # where this extra \n comes from that we handle
+                # here for the edge case of new files.
+                default_sect = '[%s]\n' % iniparse.DEFAULTSECT
+                if str_data.startswith(default_sect + '\n'):
+                    str_data = str_data[len(default_sect) + 1:]
+                else:
+                    str_data = str_data.replace(default_sect, '', 1)
 
             try:
                 if self.output == '-':
