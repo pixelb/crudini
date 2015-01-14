@@ -19,10 +19,3 @@ possibly support --lower to output normalised case for
 --get and --sort
 
 support python3
-
-Allow crudini to create files by default.
-Override with --existing or also have --no-create?
-Probably --no-create is better (more flexible)
-Actually could have --existing take an optional
-arg to control, with default meaning all.
-That would be most flexible.

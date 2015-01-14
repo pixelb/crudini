@@ -138,8 +138,13 @@ crudini --set --existing test.ini section1 name2 val 2>/dev/null && fail
 printf '%s\n' 'gname = val2' '' '' '[section1]' 'name = val2' > good.ini
 diff -u test.ini good.ini && ok || fail
 
-# missing
-crudini --set missing.ini '' name val 2>/dev/null && fail || ok
+for mode in '' '--inplace'; do
+  crudini $mode --set missing.ini '' name val 2>/dev/null && ok || fail
+  rm -f missing.ini
+  crudini $mode --existing --set missing.ini '' name val 2>/dev/null && fail || ok
+  test -f missing.ini && fail
+  rm -f missing.ini
+done
 
 # --get -------------------------------------------------
 

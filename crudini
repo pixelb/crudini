@@ -142,7 +142,7 @@ class LockedFile(FileLock):
         - Possibility of stale lock files left on crash leading to deadlock.
         - Less responsive when there is contention."""
 
-    def __init__(self, filename, operation, inplace):
+    def __init__(self, filename, operation, inplace, create):
 
         self.filename = filename
         self.operation = operation
@@ -159,14 +159,18 @@ class LockedFile(FileLock):
                 '.' + os.path.basename(filename) + '.crudini.lck'
             )
 
-        if inplace:
-            open_mode = 'r'
-            if operation != "--get":
-                open_mode += '+'
+        open_mode = os.O_RDONLY
+        if operation != "--get":
+            if inplace:
+                # We're only reading here, but we check now for write
+                # permissions we'll need, to avoid redundant processing.
+                open_mode = os.O_RDWR
+            if create:
+                open_mode += os.O_CREAT
 
         try:
             if inplace:
-                self.fp = open(self.lockpath, open_mode)
+                self.fp = os.fdopen(os.open(self.lockpath, open_mode, 0o666))
                 # In general readers are protected by file_replace()
                 # but using read lock here gives AC of the ACID properties
                 # when only accessing the file through crudini even with
@@ -174,7 +178,7 @@ class LockedFile(FileLock):
                 self.lock()
             else:
                 self.lock()
-                self.fp = open(self.filename)
+                self.fp = os.fdopen(os.open(self.filename, open_mode, 0o666))
         except EnvironmentError as e:
             error(str(e))
             sys.exit(1)
@@ -560,7 +564,8 @@ Options:
         self.added_default_section = False
 
         if filename != '-':
-            self.locked_file = LockedFile(filename, self.mode, self.inplace)
+            self.locked_file = LockedFile(filename, self.mode, self.inplace,
+                                          not self.update)
 
         try:
             conf = self._parse_file(filename, preserve_case=preserve_case)
