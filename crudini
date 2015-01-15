@@ -419,25 +419,35 @@ Usage: %s --set [OPTION]...   config_file section   [param] [value]
 
 Options:
 
-  --existing       For --set, --del and --merge fail if the
-                     section or param is not present
-  --format=FMT     For --get, select the output FMT.
-                     Formats are sh,ini,lines
-  --inplace        Lock and write files in place.
-                     This is not atomic but has less restrictions
-                     than the default replacement method.
-  --list           For --set and --del, update a list (set) of values
-  --list-sep=STR   Delimit list values with \"STR\" instead of \" ,\"
-  --output=FILE    Write output to FILE instead. '-' means stdout
+  --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
+                       where WHAT is 'file', 'section', or 'param', or if
+                       not specified; all specifed items.
+  --format=FMT       For --get, select the output FMT.
+                       Formats are sh,ini,lines
+  --inplace          Lock and write files in place.
+                       This is not atomic but has less restrictions
+                       than the default replacement method.
+  --list             For --set and --del, update a list (set) of values
+  --list-sep=STR     Delimit list values with \"STR\" instead of \" ,\"
+  --output=FILE      Write output to FILE instead. '-' means stdout
 """ % (cmd, cmd, cmd, cmd)
         )
         sys.exit(exitval)
 
     def parse_options(self):
+
+        # Handle optional arg to long option
+        # The gettopt module should really support this
+        for i, opt in enumerate(sys.argv):
+            if opt == '--existing':
+                sys.argv[i] = '--existing='
+            elif opt == '--':
+                break
+
         try:
             long_options = [
                 'del',
-                'existing',
+                'existing=',
                 'format=',
                 'get',
                 'help',
@@ -471,7 +481,10 @@ Options:
                     error('--format not recognized: %s' % self.fmt)
                     self.usage(1)
             elif o in ('--existing',):
-                self.update = True
+                self.update = a or 'param'  # 'param' implies all must exist
+                if self.update not in ('file', 'section', 'param'):
+                    error('--existing item not recognized: %s' % self.update)
+                    self.usage(1)
             elif o in ('--inplace',):
                 self.inplace = True
             elif o in ('--list',):
@@ -599,7 +612,7 @@ Options:
     def set_name_value(self, section, param, value):
         curr_val = None
 
-        if self.update:
+        if self.update in ('param', 'section'):
             if param is None:
                 if not (
                     section == iniparse.DEFAULTSECT or
@@ -607,7 +620,14 @@ Options:
                 ):
                     raise ConfigParser.NoSectionError(section)
             else:
-                curr_val = self.conf.get(section, param)
+                try:
+                    curr_val = self.conf.get(section, param)
+                except ConfigParser.NoSectionError:
+                    if self.update == 'section':
+                        raise
+                except ConfigParser.NoOptionError:
+                    if self.update == 'param':
+                        raise
         elif (section != iniparse.DEFAULTSECT and
                 not self.conf.has_section(section)):
             if self.mode == "--del":
@@ -620,7 +640,7 @@ Options:
                 self.conf.add_section(section)
 
         if param is not None:
-            if not self.update:
+            if self.update not in ('param', 'section'):
                 try:
                     curr_val = self.conf.get(section, param)
                 except ConfigParser.NoOptionError:
@@ -659,7 +679,7 @@ Options:
                     ignore_errs = (ConfigParser.NoOptionError,)
                     if self.section is not None:
                         msection = self.section
-                    elif not self.update:
+                    elif self.update not in ('param', 'section'):
                         ignore_errs += (ConfigParser.NoSectionError,)
                     try:
                         set_param = True
@@ -678,14 +698,16 @@ Options:
                 for name in self.conf.defaults():
                     self.conf.remove_option(iniparse.DEFAULTSECT, name)
             else:
-                if not self.conf.remove_section(self.section) and self.update:
+                if not self.conf.remove_section(self.section) \
+                   and self.update in ('param', 'section'):
                     raise ConfigParser.NoSectionError(self.section)
         elif self.value is None:
-            if (
-                not self.conf.remove_option(self.section, self.param) and
-                self.update
-            ):
-                raise ConfigParser.NoOptionError(self.section, self.param)
+            if not self.conf.remove_option(self.section, self.param):
+                if self.update in ('param', 'section') \
+                   and not self.conf.has_section(self.section):
+                    raise ConfigParser.NoSectionError(self.section)
+                elif self.update == 'param':
+                    raise ConfigParser.NoOptionError(self.section, self.param)
         else:  # remove item from list
             self.set_name_value(self.section, self.param, self.value)
 
@@ -771,7 +793,7 @@ Options:
         # Take the [DEFAULT] header from the input if present
         if (
             self.mode == '--merge' and
-            not self.update and
+            self.update not in ('param', 'section') and
             not self.madded_default_section and
             self.mconf.items(iniparse.DEFAULTSECT)
         ):

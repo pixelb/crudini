@@ -127,10 +127,23 @@ crudini --set test.ini '' name
 printf '%s\n' 'name=' > good.ini
 diff -u test.ini good.ini && ok || fail
 
-# --existing
+# --existing with file creation
+for mode in '' '--inplace'; do
+  crudini $mode --set missing.ini '' name val 2>/dev/null && ok || fail
+  rm -f missing.ini
+  for emode in '' 'file' 'section' 'param'; do
+    crudini $mode --existing="$emode" --set missing.ini '' name val \
+      2>/dev/null && fail || ok
+    test -f missing.ini && fail
+  done
+  rm -f missing.ini
+done
+
+# --existing[=param]
 :> test.ini
 crudini --set test.ini '' gname val
 crudini --set --existing test.ini '' gname val2
+crudini --set --existing=inval test.ini '' gname val3 2>/dev/null && fail
 crudini --set --existing test.ini '' gname2 val 2>/dev/null && fail
 crudini --set test.ini section1 name val
 crudini --set --existing test.ini section1 name val2
@@ -138,13 +151,17 @@ crudini --set --existing test.ini section1 name2 val 2>/dev/null && fail
 printf '%s\n' 'gname = val2' '' '' '[section1]' 'name = val2' > good.ini
 diff -u test.ini good.ini && ok || fail
 
-for mode in '' '--inplace'; do
-  crudini $mode --set missing.ini '' name val 2>/dev/null && ok || fail
-  rm -f missing.ini
-  crudini $mode --existing --set missing.ini '' name val 2>/dev/null && fail || ok
-  test -f missing.ini && fail
-  rm -f missing.ini
-done
+# --existing=section
+:> test.ini
+crudini --set test.ini '' gname val
+crudini --set --existing='section' test.ini '' gname val2
+crudini --set --existing='section' test.ini '' gname2 val 2>/dev/null || fail
+crudini --set test.ini section1 name val
+crudini --set --existing='section' test.ini section1 name val2
+crudini --set --existing='section' test.ini section1 name2 val 2>/dev/null || fail
+printf '%s\n' 'gname = val2' 'gname2 = val' \
+       '' '' '[section1]' 'name = val2' 'name2 = val' > good.ini
+diff -u test.ini good.ini && ok || fail
 
 # --get -------------------------------------------------
 
@@ -333,13 +350,20 @@ for sec in '' '[DEFAULT]'; do
 
   printf '%s\n' $sec 'name = val' > test.ini
   crudini --del test.ini nosect || fail
-  crudini --del --existing test.ini nosect 2>/dev/null && fail
+  crudini --del --existing=file test.ini nosect || fail
+  crudini --del --existing=section test.ini nosect 2>/dev/null && fail
+  crudini --del --existing=param test.ini '' noname 2>/dev/null && fail
+  crudini --del --existing test.ini nosect 2>/dev/null 2>/dev/null && fail
+  crudini --del --existing=param test.ini '' name || fail
   crudini --del test.ini '' || fail
   :> good.ini
   diff -u test.ini good.ini && ok || fail
 
   printf '%s\n' $sec 'name = val' > test.ini
   crudini --del test.ini nosect || fail
+  crudini --del --existing=file test.ini nosect || fail
+  crudini --del --existing=section test.ini nosect 2>/dev/null && fail
+  crudini --del --existing=param test.ini 'DEFAULT' noname 2>/dev/null && fail
   crudini --del --existing test.ini nosect 2>/dev/null && fail
   crudini --del test.ini 'DEFAULT' || fail
   :> good.ini
