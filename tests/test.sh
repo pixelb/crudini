@@ -127,6 +127,17 @@ crudini --set test.ini '' name
 printf '%s\n' 'name=' > good.ini
 diff -u test.ini good.ini && ok || fail
 
+# Protect against creating non parseable files (with nested [[]])
+:> test.ini
+crudini --set test.ini '[section]' name val 2>/dev/null && fail
+test -s test.ini && fail
+printf '%s\n' '[[section]]' 'name=val' > test.ini
+crudini --get test.ini '[section]' name 2>/dev/null && fail
+printf '%s\n' '[section]' '[name=val' > test.ini
+crudini --get test.ini 'section' '[name' 2>/dev/null && fail
+printf '%s\n' '[section]' 'n[ame=val' > test.ini
+test $(crudini --get test.ini 'section' 'n[ame') = 'val' && ok || fail
+
 # --existing with file creation
 for mode in '' '--inplace'; do
   crudini $mode --set missing.ini '' name val 2>/dev/null && ok || fail

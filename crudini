@@ -528,6 +528,15 @@ Options:
             error('sh format input is not supported at present')
             sys.exit(1)
 
+        # Protect against generating non parseable ini files
+        if self.section and ('[' in self.section or ']' in self.section):
+            error("section names should not contain '[' or ']': %s" %
+                  self.section)
+            sys.exit(1)
+        if self.param and self.param.startswith('['):
+            error("param names should not start with '[': %s" % self.param)
+            sys.exit(1)
+
         if self.fmt == 'lines':
             self._print = PrintLines()
         elif self.fmt == 'sh':
