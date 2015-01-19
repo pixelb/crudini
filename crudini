@@ -789,7 +789,13 @@ Options:
             self.mconf = self.parse_file('-', preserve_case=True)
 
         self.madded_default_section = self.added_default_section
-        self.conf = self.parse_file(self.cfgfile)
+
+        try:
+            self.conf = self.parse_file(self.cfgfile)
+        except ConfigParser.ParsingError as e:
+            error('Error parsing %s: %s' % (self.cfgfile, e.message))
+            sys.exit(1)
+
         # Take the [DEFAULT] header from the input if present
         if (
             self.mode == '--merge' and
