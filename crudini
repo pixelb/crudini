@@ -14,6 +14,7 @@ import ConfigParser
 import contextlib
 import errno
 import getopt
+import hashlib
 import iniparse
 import os
 import pipes
@@ -549,6 +550,11 @@ Options:
                 return True
         return False
 
+    def _chksum(self, data):
+        h = hashlib.md5()
+        h.update(data)
+        return h.digest()
+
     def _parse_file(self, filename, add_default=False, preserve_case=False):
         try:
             if self.data is None:
@@ -559,6 +565,10 @@ Options:
                     self.data = sys.stdin.read()
                 else:
                     self.data = self.locked_file.fp.read()
+                if self.mode != '--get':
+                    # compare checksums to flag any changes
+                    # and to avoid rewriting the file if not necessary
+                    self.chksum = self._chksum(self.data)
 
             fp = StringIO(self.data)
             if add_default:
@@ -850,9 +860,11 @@ Options:
                     str_data = str_data.replace(default_sect, '', 1)
 
             try:
+                changed = self.chksum != self._chksum(str_data)
+
                 if self.output == '-':
                     sys.stdout.write(str_data)
-                else:
+                elif changed:
                     if self.inplace:
                         self.file_rewrite(self.output, str_data)
                     else:
