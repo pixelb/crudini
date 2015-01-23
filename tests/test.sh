@@ -381,6 +381,17 @@ for sec in '' '[DEFAULT]'; do
   diff -u test.ini good.ini && ok || fail
 done
 
+# --del non existing sections/params shouldn't give an error
+printf '%s\n' '[section]' 'name = val' > test.ini
+crudini --verbose --del test.ini nosect 2>&1 | grep -q ^unchanged || fail
+crudini --verbose --del test.ini nosect noname 2>&1 | grep -q ^unchanged || fail
+crudini --verbose --del test.ini section noname 2>&1 | grep -q ^unchanged || fail
+crudini --verbose --del test.ini section noname 2>&1 | grep -q ^unchanged || fail
+crudini --verbose --del --list test.ini section noname val 2>&1 | grep -q ^unchanged || fail
+crudini --verbose --del --list test.ini nosect noname val 2>&1 | grep -q ^unchanged || fail
+crudini --verbose --del test.ini section 2>&1 | grep -q ^changed || fail
+test -s test.ini && fail || ok
+
 # --get-lines --------------------------------------------
 
 crudini --get --format=lines example.ini section1 > test.ini || fail

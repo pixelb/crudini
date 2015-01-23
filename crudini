@@ -646,7 +646,7 @@ Options:
         elif (section != iniparse.DEFAULTSECT and
                 not self.conf.has_section(section)):
             if self.mode == "--del":
-                raise ConfigParser.NoSectionError(section)
+                return
             else:
                 # Note this always adds a '\n' before the section name
                 # resulting in double spaced sections or blank line at
@@ -717,12 +717,13 @@ Options:
                    and self.update in ('param', 'section'):
                     raise ConfigParser.NoSectionError(self.section)
         elif self.value is None:
-            if not self.conf.remove_option(self.section, self.param):
-                if self.update in ('param', 'section') \
-                   and not self.conf.has_section(self.section):
-                    raise ConfigParser.NoSectionError(self.section)
-                elif self.update == 'param':
+            try:
+                if not self.conf.remove_option(self.section, self.param) \
+                   and self.update == 'param':
                     raise ConfigParser.NoOptionError(self.section, self.param)
+            except ConfigParser.NoSectionError:
+                if self.update in ('param', 'section'):
+                    raise
         else:  # remove item from list
             self.set_name_value(self.section, self.param, self.value)
 
