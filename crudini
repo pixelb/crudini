@@ -282,7 +282,7 @@ class PrintSh(Print):
 
 class Crudini():
     mode = fmt = update = inplace = cfgfile = output = section = param = \
-        value = vlist = listsep = None
+        value = vlist = listsep = verbose = None
 
     locked_file = None
     section_explicit_default = False
@@ -427,6 +427,7 @@ Options:
   --list             For --set and --del, update a list (set) of values
   --list-sep=STR     Delimit list values with \"STR\" instead of \" ,\"
   --output=FILE      Write output to FILE instead. '-' means stdout
+  --verbose          Indicate on stderr if changes were made
 """ % (cmd, cmd, cmd, cmd)
         )
         sys.exit(exitval)
@@ -454,6 +455,7 @@ Options:
                 'merge',
                 'output=',
                 'set',
+                'verbose',
                 'version'
             ]
             opts, args = getopt.getopt(sys.argv[1:], '', long_options)
@@ -467,6 +469,8 @@ Options:
             elif o in ('--version',):
                 print 'crudini 0.4'
                 sys.exit(0)
+            elif o in ('--verbose',):
+                self.verbose = True
             elif o in ('--set', '--del', '--get', '--merge'):
                 if self.mode:
                     error('One of --set|--del|--get|--merge can be specified')
@@ -567,6 +571,7 @@ Options:
                     self.data = self.locked_file.fp.read()
                 if self.mode != '--get':
                     # compare checksums to flag any changes
+                    # (even spacing or case adjustments) with --verbose,
                     # and to avoid rewriting the file if not necessary
                     self.chksum = self._chksum(self.data)
 
@@ -869,6 +874,13 @@ Options:
                         self.file_rewrite(self.output, str_data)
                     else:
                         self.file_replace(self.output, str_data)
+
+                if self.verbose:
+                    what = " ".join(filter(bool, [self.mode, self.cfgfile,
+                                                  self.section, self.param,
+                                                  self.value]))
+                    sys.stderr.write('%s: %s\n' %
+                                     (('unchanged', 'changed')[changed], what))
             except EnvironmentError as e:
                 error(str(e))
                 sys.exit(1)

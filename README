@@ -18,6 +18,7 @@ Options:
   --list             For --set and --del, update a list (set) of values
   --list-sep=STR     Delimit list values with "STR" instead of " ,"
   --output=FILE      Write output to FILE instead. '-' means stdout
+  --verbose          Indicate on stderr if changes were made
 
 Examples:
 

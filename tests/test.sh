@@ -434,3 +434,10 @@ crudini --list --existing --del example.ini list nolist1 v3 2>/dev/null && fail 
 
 # support parsing from stdin
 test "$(printf '%s\n' global=1 | crudini --get - '' global)" = 1 && ok || fail
+
+# --verbose
+printf '%s\n' '[section]' 'param = value' > test.ini
+crudini --verbose --set test.ini section param value 2>&1 | grep -q ^unchanged && ok || fail
+crudini --verbose --set test.ini section param valuE 2>&1 | grep -q ^changed && ok || fail
+crudini --verbose --del test.ini section param 2>&1 | grep -q ^changed && ok || fail
+crudini --verbose --del test.ini section param 2>&1 | grep -q ^unchanged && ok || fail
