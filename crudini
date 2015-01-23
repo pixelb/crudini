@@ -54,9 +54,6 @@ class AddDefaultSection():
         else:
             return self.fp.readline()
 
-    def seek(self, *args):
-        self.fp.seek(*args)
-
 
 class FileLock(object):
     """Advisory file based locking.  This should be reasonably cross platform
@@ -286,10 +283,9 @@ class Crudini():
     mode = fmt = update = inplace = cfgfile = output = section = param = \
         value = vlist = listsep = None
 
-    stdin = ""
-
     locked_file = None
     section_explicit_default = False
+    data = None
     conf = None
     added_default_section = False
     _print = None
@@ -546,44 +542,38 @@ Options:
         else:
             self._print = Print()
 
-    def has_default_section(self, locked_file):
-        try:
-            if locked_file is None:
-                fp = StringIO(self.stdin)
-            else:
-                fp = locked_file.fp
-
-            for line in fp:
-                if line.startswith('[%s]' % iniparse.DEFAULTSECT):
-                    return True
-
-            return False
-
-        except IOError as e:
-            error(str(e))
-            sys.exit(1)
-        finally:
-            fp.seek(0)
+    def _has_default_section(self):
+        fp = StringIO(self.data)
+        for line in fp:
+            if line.startswith('[%s]' % iniparse.DEFAULTSECT):
+                return True
+        return False
 
     def _parse_file(self, filename, add_default=False, preserve_case=False):
         try:
-            if filename == '-':
-                fp = StringIO(self.stdin)
-            else:
-                fp = self.locked_file.fp
+            if self.data is None:
+                # Read all data up front as this is done by iniparse anyway
+                # Doing it here will avoid rereads on reparse and support
+                # correct parsing of stdin
+                if filename == '-':
+                    self.data = sys.stdin.read()
+                else:
+                    self.data = self.locked_file.fp.read()
+
+            fp = StringIO(self.data)
             if add_default:
                 fp = AddDefaultSection(fp)
+
             conf = CrudiniConfigParser(preserve_case=preserve_case)
             conf.readfp(fp)
             return conf
         except EnvironmentError as e:
             error(str(e))
             sys.exit(1)
-        finally:
-            fp.seek(0)  # in case we need to reparse
 
     def parse_file(self, filename, preserve_case=False):
         self.added_default_section = False
+        self.data = None
 
         if filename != '-':
             self.locked_file = LockedFile(filename, self.mode, self.inplace,
@@ -595,7 +585,7 @@ Options:
             if not conf.items(iniparse.DEFAULTSECT):
                 # Check if there is just [DEFAULT] in a file with no
                 # name=values to avoid adding a duplicate section.
-                if not self.has_default_section(self.locked_file):
+                if not self._has_default_section():
                     # reparse with inserted [DEFAULT] to be able to add global
                     # opts etc.
                     conf = self._parse_file(
@@ -616,6 +606,7 @@ Options:
             error(str(e))
             sys.exit(1)
 
+        self.data = None
         return conf
 
     def set_name_value(self, section, param, value):
@@ -793,8 +784,6 @@ Options:
             self.section_explicit_default = True
 
         if self.mode == '--merge':
-            # read all upfront so that we can reparse if needed
-            self.stdin = sys.stdin.read()
             self.mconf = self.parse_file('-', preserve_case=True)
 
         self.madded_default_section = self.added_default_section
