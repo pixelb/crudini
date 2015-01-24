@@ -452,3 +452,4 @@ crudini --verbose --set test.ini section param value 2>&1 | grep -q ^unchanged &
 crudini --verbose --set test.ini section param valuE 2>&1 | grep -q ^changed && ok || fail
 crudini --verbose --del test.ini section param 2>&1 | grep -q ^changed && ok || fail
 crudini --verbose --del test.ini section param 2>&1 | grep -q ^unchanged && ok || fail
+crudini --verbose --del test.ini section $'multiline\nchanged:' 2>&1 | grep -q ^changed && fail || ok

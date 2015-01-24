@@ -877,9 +877,13 @@ Options:
                         self.file_replace(self.output, str_data)
 
                 if self.verbose:
-                    what = " ".join(filter(bool, [self.mode, self.cfgfile,
-                                                  self.section, self.param,
-                                                  self.value]))
+                    def quote_val(val):
+                        return pipes.quote(val).replace('\n', '\\n')
+                    what = ' '.join(map(quote_val,
+                                        filter(bool,
+                                               [self.mode, self.cfgfile,
+                                                self.section, self.param,
+                                                self.value])))
                     sys.stderr.write('%s: %s\n' %
                                      (('unchanged', 'changed')[changed], what))
             except EnvironmentError as e:
