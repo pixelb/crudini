@@ -163,7 +163,7 @@ class LockedFile(FileLock):
                 # We're only reading here, but we check now for write
                 # permissions we'll need, to avoid redundant processing.
                 open_mode = os.O_RDWR
-            if create:
+            if create and operation != '--del':
                 open_mode += os.O_CREAT
 
         try:
@@ -178,8 +178,14 @@ class LockedFile(FileLock):
                 self.lock()
                 self.fp = os.fdopen(os.open(self.filename, open_mode, 0o666))
         except EnvironmentError as e:
-            error(str(e))
-            sys.exit(1)
+            # Treat --del on a non existing file as operating on NULL data
+            # which will be deemed unchanged, and thus not re{written,created}
+            # We don't exit early here so that --verbose is also handled.
+            if create and operation == '--del' and e.errno == errno.ENOENT:
+                self.fp = StringIO('')
+            else:
+                error(str(e))
+                sys.exit(1)
 
     def delete(self):
         # explicit close so closed in correct order if taking lock multiple

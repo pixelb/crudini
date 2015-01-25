@@ -392,6 +392,11 @@ crudini --verbose --del --list test.ini nosect noname val 2>&1 | grep -q ^unchan
 crudini --verbose --del test.ini section 2>&1 | grep -q ^changed || fail
 test -s test.ini && fail || ok
 
+# --del non existing file shouldn't create an empty file
+crudini --verbose --del missing.ini section 2>&1 | grep -q ^unchanged || fail
+crudini --existing --del missing.ini section 2>/dev/null && fail
+test -f missing.ini && fail || ok
+
 # --get-lines --------------------------------------------
 
 crudini --get --format=lines example.ini section1 > test.ini || fail
