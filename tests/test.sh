@@ -8,8 +8,8 @@ export PATH=..:$PATH
 
 test=0
 
-fail() { test=$(($test+1)); echo "Test $test FAIL (line ${BASH_LINENO[-2]})"; exit 1; }
-ok() { test=$(($test+1)); echo "Test $test OK (line ${BASH_LINENO[-2]})"; }
+fail() { test=$(($test+1)); echo "Test $test FAIL (line ${BASH_LINENO[0]})"; exit 1; }
+ok() { test=$(($test+1)); echo "Test $test OK (line ${BASH_LINENO[0]})"; }
 
 cp ../example.ini .
 
