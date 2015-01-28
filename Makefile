@@ -1,5 +1,5 @@
 name = crudini
-version = 0.4
+version = 0.5
 
 all:
 	help2man -n "manipulate ini files" -o crudini.1 -N ./crudini-help
