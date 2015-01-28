@@ -19,3 +19,14 @@ possibly support --lower to output normalised case for
 --get and --sort
 
 support python3
+
+Have a look at cliff output formatters? csv and shell at least:
+http://blog.oddbit.com/2013/11/22/a-unified-cli-for-op
+
+--format=json to output json format.
+Note ini format supports name:value so quite a lot of overlap
+
+have pip install put man page in place
+
+Support spacing options for new items. I.E. allow to
+set=like_this rather than just set = like_this.
