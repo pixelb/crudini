@@ -1,7 +1,15 @@
 support variables without =
 
 support --set,--merge of #commented name=value
-with operation configured with --comment = {always,unchanged}
+with operation controlled with
+  --with-comment=always
+     To add new item under comment even if same value as comment
+  --with-comment[=ifchanged]
+     To add new item under comment only if different.
+     Would support --list also to add to default list.
+  --new-comment
+     To add an (additional) comment line for item no matter where,
+     or if, it's added. Ensure above any #commented name=value though.
 
 support multiple files passed to --merge
 
@@ -30,3 +38,5 @@ have pip install put man page in place
 
 Support spacing options for new items. I.E. allow to
 set=like_this rather than just set = like_this.
+This would have significance for shell like config formats
+when adding new parmeters. Maybe have --format=sh control this.
