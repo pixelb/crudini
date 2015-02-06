@@ -1,6 +1,15 @@
 crudini NEWS                                    -*- outline -*-
 
-* Noteworthy changes in release 0.5 (????-??-??)
+* Noteworthy changes in release 0.6 (????-??-??)
+
+** Bug fixes
+
+  crudini no longer removes a blank line from the start of a file
+  which has no sections, or options outside a section.
+  [bug introduced in vesion 0.5]
+
+
+* Noteworthy changes in release 0.5 (2015-01-28)
 
 ** Bug fixes
 

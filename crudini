@@ -581,6 +581,11 @@ Options:
                     # and to avoid rewriting the file if not necessary
                     self.chksum = self._chksum(self.data)
 
+                if self.data.startswith('\n'):
+                    self.newline_at_start = True
+                else:
+                    self.newline_at_start = False
+
             fp = StringIO(self.data)
             if add_default:
                 fp = AddDefaultSection(fp)
@@ -866,7 +871,8 @@ Options:
                 # where this extra \n comes from that we handle
                 # here for the edge case of new files.
                 default_sect = '[%s]\n' % iniparse.DEFAULTSECT
-                if str_data.startswith(default_sect + '\n'):
+                if not self.newline_at_start and \
+                   str_data.startswith(default_sect + '\n'):
                     str_data = str_data[len(default_sect) + 1:]
                 else:
                     str_data = str_data.replace(default_sect, '', 1)

@@ -458,3 +458,10 @@ crudini --verbose --set test.ini section param valuE 2>&1 | grep -q ^changed && 
 crudini --verbose --del test.ini section param 2>&1 | grep -q ^changed && ok || fail
 crudini --verbose --del test.ini section param 2>&1 | grep -q ^unchanged && ok || fail
 crudini --verbose --del test.ini section $'multiline\nchanged:' 2>&1 | grep -q ^changed && fail || ok
+
+# ensure leading blank lines maintained with global settings
+printf '%s\n' '' 'option=1' > file.conf
+printf '%s\n' '' 'option=2' > good.conf
+crudini --set file.conf '' option 2 || fail
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
