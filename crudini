@@ -169,7 +169,7 @@ class LockedFile(FileLock):
         try:
             if inplace:
                 self.fp = os.fdopen(os.open(self.lockpath, open_mode, 0o666))
-                # In general readers are protected by file_replace()
+                # In general readers (--get) are protected by file_replace(),
                 # but using read lock here gives AC of the ACID properties
                 # when only accessing the file through crudini even with
                 # file_rewrite().
