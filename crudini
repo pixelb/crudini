@@ -89,7 +89,6 @@ class FileLock(object):
                             time.sleep(1)
                         else:
                             raise OSError(str(e).replace(".crudini.lck",""))
-                            #raise
                     else:
                         self.locked = True
                         break
@@ -186,7 +185,6 @@ class LockedFile(FileLock):
                 self.fp = StringIO('')
             else:
                 error(str(e).replace(".crudini.lck",""))
-                #error(str(e))
                 sys.exit(1)
 
     def delete(self):
