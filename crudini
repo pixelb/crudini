@@ -88,6 +88,8 @@ class FileLock(object):
                         if e.errno == errno.EEXIST:
                             time.sleep(1)
                         else:
+                            if e.errno in (errno.ENOTDIR, errno.ENOENT):
+                                e.filename = self.filename
                             raise
                     else:
                         self.locked = True
@@ -181,7 +183,8 @@ class LockedFile(FileLock):
             # Treat --del on a non existing file as operating on NULL data
             # which will be deemed unchanged, and thus not re{written,created}
             # We don't exit early here so that --verbose is also handled.
-            if create and operation == '--del' and e.errno == errno.ENOENT:
+            if create and operation == '--del' \
+               and e.errno in (errno.ENOTDIR, errno.ENOENT):
                 self.fp = StringIO('')
             else:
                 error(str(e))
