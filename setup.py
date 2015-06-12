@@ -9,7 +9,7 @@ def read(fname):
 
 setup(
     name="crudini",
-    version="0.5",
+    version="0.6",
     author="Pádraig Brady",
     author_email="P@draigBrady.com",
     description=("A utility for manipulating ini files"),
