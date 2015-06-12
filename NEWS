@@ -6,7 +6,9 @@ crudini NEWS                                    -*- outline -*-
 
   crudini no longer removes a blank line from the start of a file
   which has no sections, or options outside a section.
-  [bug introduced in vesion 0.5]
+  [bug introduced in version 0.5]
+
+  crudini now syncs files after writing for better Durability.
 
 
 * Noteworthy changes in release 0.5 (2015-01-28)

@@ -350,6 +350,7 @@ class Crudini():
                 os.fchown(f, st.st_uid, st.st_gid)
 
             os.write(f, data)
+            os.fsync(f)  # See http://stackoverflow.com/q/7433057/4421
             os.close(f)
 
             if hasattr(os, 'replace'):  # >= python 3.3
@@ -361,6 +362,12 @@ class Crudini():
                 os.rename(name, backup)
                 os.rename(tmp, name)
                 delete_if_exists(backup)
+
+            # Sync out the new directory entry also
+            O_DIRECTORY = os.O_DIRECTORY if hasattr(os, 'O_DIRECTORY') else 0
+            dirfd = os.open(os.path.dirname(name) or '.', O_DIRECTORY)
+            os.fsync(dirfd)
+            os.close(dirfd)
 
     @staticmethod
     def file_rewrite(name, data):
@@ -375,6 +382,8 @@ class Crudini():
         """
         with open(name, 'w') as f:
             f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
 
     @staticmethod
     def init_iniparse_defaultsect():
