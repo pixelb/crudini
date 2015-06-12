@@ -8,7 +8,11 @@ crudini NEWS                                    -*- outline -*-
   which has no sections, or options outside a section.
   [bug introduced in version 0.5]
 
-  crudini now syncs files after writing for better Durability.
+  Files are now synced after writing for better Durability.
+
+  Separate locking files are no longer used which avoids
+  deadlock in cases where the system is stopped in the
+  small window where these files exist.
 
 
 * Noteworthy changes in release 0.5 (2015-01-28)
