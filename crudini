@@ -421,6 +421,8 @@ Options:
   --list-sep=STR     Delimit list values with \"STR\" instead of \" ,\"
   --output=FILE      Write output to FILE instead. '-' means stdout
   --verbose          Indicate on stderr if changes were made
+  --help             Write this help to stdout
+  --version          Write version to stdout
 """ % (cmd, cmd, cmd, cmd)
         )
         sys.exit(exitval)
