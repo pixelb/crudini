@@ -325,7 +325,13 @@ class Crudini():
                 os.fchown(f, st.st_uid, st.st_gid)
 
             os.write(f, data)
-            os.fsync(f)  # See http://stackoverflow.com/q/7433057/4421
+            # We assume the existing file is persisted,
+            # so sync here to ensure new data is persisted
+            # before referencing it.  Otherwise the metadata could
+            # be written first, referencing the new data, which
+            # would be nothing if a crash occured before the
+            # data was allocated/persisted.
+            os.fsync(f)
             os.close(f)
 
             if hasattr(os, 'replace'):  # >= python 3.3
@@ -338,7 +344,11 @@ class Crudini():
                 os.rename(tmp, name)
                 delete_if_exists(backup)
 
-            # Sync out the new directory entry also
+            # Sync out the new directory entry to provide
+            # better durability that the new inode is referenced
+            # rather than continuing to reference the old inode.
+            # This also provides verification in exit status that
+            # this update completes.
             O_DIRECTORY = os.O_DIRECTORY if hasattr(os, 'O_DIRECTORY') else 0
             dirfd = os.open(os.path.dirname(name) or '.', O_DIRECTORY)
             os.fsync(dirfd)
