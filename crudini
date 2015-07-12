@@ -421,7 +421,7 @@ Options:
 
   --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
                        where WHAT is 'file', 'section', or 'param', or if
-                       not specified; all specifed items.
+                       not specified; all specified items.
   --format=FMT       For --get, select the output FMT.
                        Formats are sh,ini,lines
   --inplace          Lock and write files in place.
