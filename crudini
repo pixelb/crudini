@@ -104,7 +104,6 @@ class LockedFile(FileLock):
         - File must be writeable
         - File should be generally non readable to avoid read lock DoS.
        Caveats in replace mode:
-        - Possibility of stale lock files left on crash leading to deadlock.
         - Less responsive when there is contention."""
 
     def __init__(self, filename, operation, inplace, create):
