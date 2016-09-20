@@ -1,17 +1,15 @@
 #!/bin/bash
 
 trap "exit 130" INT
-cleanup() { rm -f test.ini good.ini example.ini; exit; }
+cleanup() { rm -f test.ini good.ini tests/example.ini; exit; }
 trap cleanup EXIT
-
-export PATH=..:$PATH
 
 test=0
 
 fail() { test=$(($test+1)); echo "Test $test FAIL (line ${BASH_LINENO[0]})"; exit 1; }
 ok() { test=$(($test+1)); echo "Test $test OK (line ${BASH_LINENO[0]})"; }
 
-cp ../example.ini .
+cp example.ini tests/example.ini
 
 # invalid params ----------------------------------------
 
@@ -204,11 +202,11 @@ ok
 
 # get section1 in ini format
 crudini --format=ini --get example.ini section1 > test.ini
-diff -u test.ini section1.ini && ok || fail
+diff -u test.ini tests/section1.ini && ok || fail
 
 # get section1 in sh format
 crudini --format=sh --get example.ini section1 > test.ini
-diff -u test.ini section1.sh && ok || fail
+diff -u test.ini tests/section1.sh && ok || fail
 
 # empty DEFAULT is not printed
 printf '%s\n' '[DEFAULT]' '#comment' '[section1]' > test.ini
@@ -400,10 +398,10 @@ test -f missing.ini && fail || ok
 # --get-lines --------------------------------------------
 
 crudini --get --format=lines example.ini section1 > test.ini || fail
-diff -u test.ini section1.lines && ok || fail
+diff -u test.ini tests/section1.lines && ok || fail
 
 crudini --get --format=lines example.ini > test.ini || fail
-diff -u test.ini example.lines && ok || fail
+diff -u test.ini tests/example.lines && ok || fail
 
 # --list -------------------------------------------------
 
