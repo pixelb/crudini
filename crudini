@@ -559,7 +559,7 @@ Options:
         return False
 
     def _chksum(self, data):
-        h = hashlib.md5()
+        h = hashlib.sha256()
         h.update(data)
         return h.digest()
 
