@@ -179,6 +179,9 @@ class LockedFile(FileLock):
 class CrudiniConfigParser(iniparse.RawConfigParser):
     def __init__(self, preserve_case=False):
         iniparse.RawConfigParser.__init__(self)
+        # Without the following we can't have params starting with "rem"!
+        # We ignore lines starting with '%' which mercurial uses to include
+        iniparse.change_comment_syntax('%;#', allow_rem=False)
         if preserve_case:
             self.optionxform = str
 

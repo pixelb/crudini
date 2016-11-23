@@ -217,6 +217,13 @@ printf '%s\n' '#comment' '[section1]' > test.ini
 test "$(crudini --get test.ini)" = 'section1' || fail
 ok
 
+# Ensure we handle comments correctly
+printf '%s\n' '[DEFAULT]' '#c1' ';c2' '%inc1' > test.ini
+test "$(crudini --get test.ini)" = '' || fail
+printf '%s\n' '[section1]' 'remote=1' > test.ini
+test "$(crudini --get test.ini 'section1')" = 'remote' || fail
+ok
+
 # missing bits
 :> test.ini
 crudini --get missing.ini 2>/dev/null && fail
