@@ -1,5 +1,19 @@
 crudini NEWS                                    -*- outline -*-
 
+* Noteworthy changes in release 0.8 (2016-11-23)
+
+** Bug fixes
+
+  crudini now handles parameters starting with "rem".
+  Previously an entry such as "remote = 1" would be ignored.
+
+** New features
+
+  Support mercurial config files by treating lines starting
+  with '%' as comments, thus ignoring mercurial '%include'
+  and '%unset' directives.
+
+
 * Noteworthy changes in release 0.7 (2015-06-14)
 
 ** Bug fixes
