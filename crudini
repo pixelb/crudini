@@ -818,20 +818,16 @@ Options:
 
         try:
             self.conf = self.parse_file(self.cfgfile)
-        except ConfigParser.ParsingError as e:
-            error('Error parsing %s: %s' % (self.cfgfile, e.message))
-            sys.exit(1)
 
-        # Take the [DEFAULT] header from the input if present
-        if (
-            self.mode == '--merge' and
-            self.update not in ('param', 'section') and
-            not self.madded_default_section and
-            self.mconf.items(iniparse.DEFAULTSECT)
-        ):
-            self.added_default_section = self.madded_default_section
+            # Take the [DEFAULT] header from the input if present
+            if (
+                self.mode == '--merge' and
+                self.update not in ('param', 'section') and
+                not self.madded_default_section and
+                self.mconf.items(iniparse.DEFAULTSECT)
+            ):
+                self.added_default_section = self.madded_default_section
 
-        try:
             if self.mode == '--set':
                 self.command_set()
             elif self.mode == '--merge':
@@ -840,45 +836,38 @@ Options:
                 self.command_del()
             elif self.mode == '--get':
                 self.command_get()
-        except ConfigParser.NoSectionError as e:
-            error('Section not found: %s' % e.section)
-            sys.exit(1)
-        except ConfigParser.NoOptionError:
-            error('Parameter not found: %s' % self.param)
-            sys.exit(1)
 
-        if self.mode != '--get':
-            # XXX: Ideally we should just do conf.write(f) here,
-            # but to avoid iniparse issues, we massage the data a little here
-            str_data = str(self.conf.data)
-            if len(str_data) and str_data[-1] != '\n':
-                str_data += '\n'
+            if self.mode != '--get':
+                # XXX: Ideally we should just do conf.write(f) here, but to
+                # avoid iniparse issues, we massage the data a little here
+                str_data = str(self.conf.data)
+                if len(str_data) and str_data[-1] != '\n':
+                    str_data += '\n'
 
-            if (
-                (
-                    self.added_default_section and
-                    not (
-                        self.section_explicit_default and
-                        self.mode in ('--set', '--merge')
+                if (
+                    (
+                        self.added_default_section and
+                        not (
+                            self.section_explicit_default and
+                            self.mode in ('--set', '--merge')
+                        )
+                    ) or
+                    (
+                        self.mode == '--del' and
+                        self.section == iniparse.DEFAULTSECT and
+                        self.param is None
                     )
-                ) or
-                (
-                    self.mode == '--del' and
-                    self.section == iniparse.DEFAULTSECT and
-                    self.param is None
-                )
-            ):
-                # See note at add_section() call above detailing
-                # where this extra \n comes from that we handle
-                # here for the edge case of new files.
-                default_sect = '[%s]\n' % iniparse.DEFAULTSECT
-                if not self.newline_at_start and \
-                   str_data.startswith(default_sect + '\n'):
-                    str_data = str_data[len(default_sect) + 1:]
-                else:
-                    str_data = str_data.replace(default_sect, '', 1)
+                ):
+                    # See note at add_section() call above detailing
+                    # where this extra \n comes from that we handle
+                    # here for the edge case of new files.
+                    default_sect = '[%s]\n' % iniparse.DEFAULTSECT
+                    if not self.newline_at_start and \
+                        str_data.startswith(default_sect + '\n'):
+                        str_data = str_data[len(default_sect) + 1:]
+                    else:
+                        str_data = str_data.replace(default_sect, '', 1)
 
-            try:
                 changed = self.chksum != self._chksum(str_data)
 
                 if self.output == '-':
@@ -899,7 +888,22 @@ Options:
                                                 self.value])))
                     sys.stderr.write('%s: %s\n' %
                                      (('unchanged', 'changed')[changed], what))
-            except EnvironmentError as e:
+
+            # Finish writing now to consistently handle errors here
+            # (and while excepthook is set)
+            sys.stdout.flush()
+        except ConfigParser.ParsingError as e:
+            error('Error parsing %s: %s' % (self.cfgfile, e.message))
+            sys.exit(1)
+        except ConfigParser.NoSectionError as e:
+            error('Section not found: %s' % e.section)
+            sys.exit(1)
+        except ConfigParser.NoOptionError:
+            error('Parameter not found: %s' % self.param)
+            sys.exit(1)
+        except EnvironmentError as e:
+            # Handle EPIPE as python doesn't catch SIGPIPE
+            if e.errno != errno.EPIPE:
                 error(str(e))
                 sys.exit(1)
 

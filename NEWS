@@ -1,5 +1,12 @@
 crudini NEWS                                    -*- outline -*-
 
+* Noteworthy changes in release 0.9 (????-??-??)
+
+** Bug fixes
+
+  crudini diagnoses write errors to stdout correctly and consistently.
+
+
 * Noteworthy changes in release 0.8 (2016-11-23)
 
 ** Bug fixes
