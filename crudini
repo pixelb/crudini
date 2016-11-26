@@ -863,7 +863,7 @@ Options:
                     # here for the edge case of new files.
                     default_sect = '[%s]\n' % iniparse.DEFAULTSECT
                     if not self.newline_at_start and \
-                        str_data.startswith(default_sect + '\n'):
+                       str_data.startswith(default_sect + '\n'):
                         str_data = str_data[len(default_sect) + 1:]
                     else:
                         str_data = str_data.replace(default_sect, '', 1)
