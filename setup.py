@@ -24,6 +24,6 @@ setup(
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Programming Language :: Python :: 2",
     ],
-    install_requires=['iniparse'],
+    install_requires=['iniparse>=0.3.2'],
     scripts=["crudini"]
 )
