@@ -4,7 +4,9 @@ crudini NEWS                                    -*- outline -*-
 
 ** Bug fixes
 
-  crudini diagnoses write errors to stdout correctly and consistently.
+  Write errors to stdout are diagnosed correctly and consistently.
+
+  Replacing symlinks now replaces the target rather than the symlink itself.
 
 
 * Noteworthy changes in release 0.8 (2016-11-23)

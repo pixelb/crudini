@@ -480,3 +480,9 @@ if test -e /dev/full; then
 crudini --get example.ini 2>err >/dev/full
 grep -q 'No space left' err && ok || fail
 fi
+
+# ensure symlinks handled correctly in file replace mode
+printf '%s\n' '[section]' 'param = value' > test.ini
+ln -s test.ini ltest.ini
+crudini --set ltest.ini section param newvalue || fail
+test "$(crudini --get test.ini section param)" = 'newvalue' && ok || fail

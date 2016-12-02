@@ -515,7 +515,7 @@ Options:
             pass
 
         if not self.output:
-            self.output = self.cfgfile
+            self.output = os.path.realpath(self.cfgfile)
 
         if self.cfgfile is None:
             self.usage(1)
