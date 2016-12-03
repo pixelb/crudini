@@ -515,7 +515,7 @@ Options:
             pass
 
         if not self.output:
-            self.output = os.path.realpath(self.cfgfile)
+            self.output = self.cfgfile
 
         if self.cfgfile is None:
             self.usage(1)
@@ -876,7 +876,8 @@ Options:
                     if self.inplace:
                         self.file_rewrite(self.output, str_data)
                     else:
-                        self.file_replace(self.output, str_data)
+                        self.file_replace(os.path.realpath(self.output),
+                                          str_data)
 
                 if self.verbose:
                     def quote_val(val):

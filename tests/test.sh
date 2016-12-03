@@ -1,7 +1,7 @@
 #!/bin/bash
 
 trap "exit 130" INT
-cleanup() { rm -f test.ini good.ini example.ini; exit; }
+cleanup() { rm -f test.ini ltest.ini good.ini example.ini; exit; }
 trap cleanup EXIT
 
 export PATH=..:$PATH
@@ -486,3 +486,5 @@ printf '%s\n' '[section]' 'param = value' > test.ini
 ln -s test.ini ltest.ini
 crudini --set ltest.ini section param newvalue || fail
 test "$(crudini --get test.ini section param)" = 'newvalue' && ok || fail
+crudini --output=ltest.ini --set ltest.ini section param newvalue2 || fail
+test "$(crudini --get test.ini section param)" = 'newvalue2' && ok || fail
