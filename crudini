@@ -817,7 +817,15 @@ Options:
         self.madded_default_section = self.added_default_section
 
         try:
-            self.conf = self.parse_file(self.cfgfile)
+            if self.mode =='--get' and self.param == None:
+                # Maintain case when outputting params.
+                # Note sections are handled case sensitively
+                # even if optionxform is not set.
+                preserve_case = True
+            else:
+                preserve_case = False
+            self.conf = self.parse_file(self.cfgfile,
+                                        preserve_case = preserve_case)
 
             # Take the [DEFAULT] header from the input if present
             if (

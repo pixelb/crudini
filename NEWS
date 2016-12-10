@@ -8,6 +8,10 @@ crudini NEWS                                    -*- outline -*-
 
   Replacing symlinks now replaces the target rather than the symlink itself.
 
+** Changes in behavior
+
+  The case of parameters is maintained with --get.
+
 
 * Noteworthy changes in release 0.8 (2016-11-23)
 

@@ -17,7 +17,7 @@
 [ section1 ] empty
 [ section1 ] python_interpolate = %(dup1)s/blah
 [ section1 ] interpolate2 = ${dup1}/blah
-[ section1 ] caps = not significant
+[ section1 ] Caps = not significant
 [ section1 ] combine = sections
 [ empty section ]
 [ non-sh-compat ] space name = val
