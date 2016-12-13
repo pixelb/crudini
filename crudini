@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 # vim:fileencoding=utf8
 #
-# Copyright (C) 2013-2015, Pádraig Brady <P@draigBrady.com>
+# Copyright © Pádraig Brady <P@draigBrady.com>
 #
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GPLv2, the GNU General Public License version 2, as
@@ -40,11 +40,29 @@ def delete_if_exists(path):
             raise
 
 
-# XXX: should be done in iniparse.  Used to
-# add support for ini files without a section
-class AddDefaultSection():
+# TODO: support configurable options for various ini variants.
+# For now just support parameters without '=' specified
+class CrudiniInputFilter():
     def __init__(self, fp):
         self.fp = fp
+        self.crudini_no_arg = False
+
+    def readline(self):
+        line = self.fp.readline()
+        # XXX: This doesn't handle ;inline comments.
+        # Really should be done within inparse.
+        if (line and line[0] not in '[ \t#;\n'
+           and '=' not in line and ':' not in line):
+            self.crudini_no_arg = True
+            line = line[:-1] + ' = crudini_no_arg\n'
+        return line
+
+
+# XXX: should be done in iniparse.  Used to
+# add support for ini files without a section
+class AddDefaultSection(CrudiniInputFilter):
+    def __init__(self, fp):
+        CrudiniInputFilter.__init__(self, fp)
         self.first = True
 
     def readline(self):
@@ -52,7 +70,7 @@ class AddDefaultSection():
             self.first = False
             return '[%s]' % iniparse.DEFAULTSECT
         else:
-            return self.fp.readline()
+            return CrudiniInputFilter.readline(self)
 
 
 class FileLock(object):
@@ -205,6 +223,8 @@ class Print():
         :param section: str (default 'None')
         """
 
+        if value == 'crudini_no_arg':
+            value = ''
         print name or value
 
 
@@ -215,6 +235,8 @@ class PrintIni(Print):
         print "[%s]" % section
 
     def name_value(self, name, value, section=None):
+        if value == 'crudini_no_arg':
+            value = ''
         print name, '=', value.replace('\n', '\n ')
 
 
@@ -230,6 +252,8 @@ class PrintLines(Print):
                 line += ' '
         if name:
             line += '%s' % name
+        if value == 'crudini_no_arg':
+            value = ''
         if value:
             line += ' = %s' % value.replace('\n', '\\n')
         print line
@@ -263,6 +287,8 @@ class PrintSh(Print):
         if not PrintSh._valid_sh_identifier(name):
             error('Invalid sh identifier: %s' % name)
             sys.exit(1)
+        if value == 'crudini_no_arg':
+            value = ''
         sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
 
 
@@ -590,9 +616,12 @@ Options:
             fp = StringIO(self.data)
             if add_default:
                 fp = AddDefaultSection(fp)
+            else:
+                fp = CrudiniInputFilter(fp)
 
             conf = CrudiniConfigParser(preserve_case=preserve_case)
             conf.readfp(fp)
+            self.crudini_no_arg = fp.crudini_no_arg
             return conf
         except EnvironmentError as e:
             error(str(e))
@@ -674,7 +703,7 @@ Options:
                     if self.mode == "--del":
                         return
             if value is None:
-                value = ''
+                value = 'crudini_no_arg' if self.crudini_no_arg else ''
             if self.vlist:
                 value = self.update_list(
                     curr_val,
@@ -817,7 +846,7 @@ Options:
         self.madded_default_section = self.added_default_section
 
         try:
-            if self.mode =='--get' and self.param == None:
+            if self.mode == '--get' and self.param is None:
                 # Maintain case when outputting params.
                 # Note sections are handled case sensitively
                 # even if optionxform is not set.
@@ -825,7 +854,7 @@ Options:
             else:
                 preserve_case = False
             self.conf = self.parse_file(self.cfgfile,
-                                        preserve_case = preserve_case)
+                                        preserve_case=preserve_case)
 
             # Take the [DEFAULT] header from the input if present
             if (
@@ -875,6 +904,14 @@ Options:
                         str_data = str_data[len(default_sect) + 1:]
                     else:
                         str_data = str_data.replace(default_sect, '', 1)
+
+                if self.crudini_no_arg:
+                    # This is the main case
+                    str_data = str_data.replace(' = crudini_no_arg', '')
+                    # Handle setting empty values for existing param= format
+                    str_data = str_data.replace('=crudini_no_arg', '=')
+                    # Handle setting empty values for existing colon: format
+                    str_data = str_data.replace(':crudini_no_arg', ':')
 
                 changed = self.chksum != self._chksum(str_data)
 

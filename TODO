@@ -1,5 +1,3 @@
-support variables without =
-
 support --set,--merge of #commented name=value
 with operation controlled with
   --with-comment=always

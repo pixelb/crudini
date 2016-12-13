@@ -1,7 +1,7 @@
 #!/bin/bash
 
 trap "exit 130" INT
-cleanup() { rm -f test.ini ltest.ini good.ini example.ini; exit; }
+cleanup() { rm -f err noequals*.ini test.ini ltest.ini good.ini example.ini; exit; }
 trap cleanup EXIT
 
 export PATH=..:$PATH
@@ -488,3 +488,14 @@ crudini --set ltest.ini section param newvalue || fail
 test "$(crudini --get test.ini section param)" = 'newvalue' && ok || fail
 crudini --output=ltest.ini --set ltest.ini section param newvalue2 || fail
 test "$(crudini --get test.ini section param)" = 'newvalue2' && ok || fail
+
+# Test single token parameters (without equals)
+cp ../noequals.ini .
+crudini --get noequals.ini >/dev/null && ok || fail
+cp noequals.ini noequals_new.ini
+printf '%s\n' 'new' 'new_equals = ' >> noequals_new.ini
+for param in param{1..3} colon{1..2} new; do
+ crudini --set noequals.ini noequals $param || fail
+done
+crudini --set noequals.ini noequals new_equals '' || fail
+diff -u noequals.ini noequals_new.ini && ok || fail

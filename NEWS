@@ -12,6 +12,11 @@ crudini NEWS                                    -*- outline -*-
 
   The case of parameters is maintained with --get.
 
+** Improvements
+
+  Single token parameters (without equals) are now supported,
+  which are used in mysql config for example.
+
 
 * Noteworthy changes in release 0.8 (2016-11-23)
 
