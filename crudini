@@ -124,7 +124,7 @@ class LockedFile(FileLock):
        Caveats in replace mode:
         - Less responsive when there is contention."""
 
-    def __init__(self, filename, operation, inplace, create):
+    def __init__(self, filename, operation, inplace, create, no_lock=False):
 
         self.fp_cmp = None
         self.filename = filename
@@ -156,7 +156,8 @@ class LockedFile(FileLock):
             else:
                 # The file may have been renamed since the open so recheck
                 while True:
-                    self.lock()
+                    if operation == '--get' and not no_lock:
+                        self.lock()
                     fpnew = os.fdopen(os.open(self.filename, open_mode, 0o666))
                     if os.path.sameopenfile(self.fp.fileno(), fpnew.fileno()):
                         # Note we don't fpnew.close() here as that would break
@@ -293,8 +294,8 @@ class PrintSh(Print):
 
 
 class Crudini():
-    mode = fmt = update = inplace = cfgfile = output = section = param = \
-        value = vlist = listsep = verbose = None
+    mode = fmt = update = inplace = no_lock = cfgfile = output = section = \
+        param = value = vlist = listsep = verbose = None
 
     locked_file = None
     section_explicit_default = False
@@ -457,6 +458,9 @@ Options:
                        than the default replacement method.
   --list             For --set and --del, update a list (set) of values
   --list-sep=STR     Delimit list values with \"STR\" instead of \" ,\"
+  --no-lock          For --get, do not create a lock file.
+                       This can cause problems if there are process
+                       in non atomic write.
   --output=FILE      Write output to FILE instead. '-' means stdout
   --verbose          Indicate on stderr if changes were made
   --help             Write this help to stdout
@@ -485,6 +489,7 @@ Options:
                 'inplace',
                 'list',
                 'list-sep=',
+                'no-lock',
                 'merge',
                 'output=',
                 'set',
@@ -525,6 +530,8 @@ Options:
                 self.vlist = "set"  # TODO support combos of list, sorted, ...
             elif o in ('--list-sep',):
                 self.listsep = a
+            elif o in ('--no-lock',):
+                self.no_lock = True
             elif o in ('--output',):
                 self.output = a
 
@@ -548,6 +555,9 @@ Options:
         if self.section is None and self.mode in ('--del', '--set'):
             self.usage(1)
         if self.param is not None and self.mode in ('--merge',):
+            self.usage(1)
+        if self.no_lock and self.mode not in ('--get',):
+            error('The lock can be avoided only with --get')
             self.usage(1)
         if self.value is not None and self.mode not in ('--set',):
             if not (self.mode == '--del' and self.vlist):
@@ -633,7 +643,7 @@ Options:
 
         if filename != '-':
             self.locked_file = LockedFile(filename, self.mode, self.inplace,
-                                          not self.update)
+                                          not self.update, self.no_lock)
 
         try:
             conf = self._parse_file(filename, preserve_case=preserve_case)
