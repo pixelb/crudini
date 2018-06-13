@@ -944,7 +944,7 @@ Options:
             # (and while excepthook is set)
             sys.stdout.flush()
         except ConfigParser.ParsingError as e:
-            error('Error parsing %s: %s' % (self.cfgfile, "".join(e.args)))
+            error('Error parsing %s: %s' % (self.cfgfile, " ".join(e.args)))
             sys.exit(1)
         except ConfigParser.NoSectionError as e:
             error('Section not found: %s' % e.section)
