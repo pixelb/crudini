@@ -9,8 +9,6 @@
 # published by the Free Software Foundation. http://gnu.org/licenses/gpl.html
 
 import atexit
-from cStringIO import StringIO
-import ConfigParser
 import contextlib
 import errno
 import getopt
@@ -24,6 +22,13 @@ import sys
 import tempfile
 
 
+if sys.version_info[:2] < (3, 0):
+    from cStringIO import StringIO
+    import ConfigParser
+else:
+    from io import StringIO
+    import configparser as ConfigParser
+
 def error(message=None):
     if message:
         sys.stderr.write(message+'\n')
@@ -36,13 +41,13 @@ def delete_if_exists(path):
         os.unlink(path)
     except EnvironmentError as e:
         if e.errno != errno.ENOENT:
-            print str(e)
+            print (str(e))
             raise
 
 
 # TODO: support configurable options for various ini variants.
 # For now just support parameters without '=' specified
-class CrudiniInputFilter():
+class CrudiniInputFilter(object):
     def __init__(self, fp):
         self.fp = fp
         self.crudini_no_arg = False
@@ -204,7 +209,7 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
             self.optionxform = str
 
 
-class Print():
+class Print(object):
     """Use for default output format."""
 
     def section_header(self, section):
@@ -213,7 +218,7 @@ class Print():
         :param section: str
         """
 
-        print section
+        print (section)
 
     def name_value(self, name, value, section=None):
         """Print parameter.
@@ -225,19 +230,19 @@ class Print():
 
         if value == 'crudini_no_arg':
             value = ''
-        print name or value
+        print (name or value)
 
 
 class PrintIni(Print):
     """Use for ini output format."""
 
     def section_header(self, section):
-        print "[%s]" % section
+        print ("[%s]" % section)
 
     def name_value(self, name, value, section=None):
         if value == 'crudini_no_arg':
             value = ''
-        print name, '=', value.replace('\n', '\n ')
+        print ("%s %s %s" % (name, '=', value.replace('\n', '\n '), ))
 
 
 class PrintLines(Print):
@@ -256,7 +261,7 @@ class PrintLines(Print):
             value = ''
         if value:
             line += ' = %s' % value.replace('\n', '\\n')
-        print line
+        print (line)
 
 
 class PrintSh(Print):
@@ -292,7 +297,7 @@ class PrintSh(Print):
         sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
 
 
-class Crudini():
+class Crudini(object):
     mode = fmt = update = inplace = cfgfile = output = section = param = \
         value = vlist = listsep = verbose = None
 
@@ -321,7 +326,7 @@ class Crudini():
         except Exception:
             t, v, tb = sys.exc_info()
             delete_if_exists(path)
-            raise t, v, tb
+            raise t(v).with_traceback(tb)
 
     @staticmethod
     def file_replace(name, data):
@@ -492,7 +497,7 @@ Options:
                 'version'
             ]
             opts, args = getopt.getopt(sys.argv[1:], '', long_options)
-        except getopt.GetoptError, e:
+        except getopt.GetoptError as e:
             error(str(e))
             self.usage(1)
 
@@ -500,7 +505,7 @@ Options:
             if o in ('--help',):
                 self.usage(0)
             elif o in ('--version',):
-                print 'crudini 0.9'
+                print ('crudini 0.9')
                 sys.exit(0)
             elif o in ('--verbose',):
                 self.verbose = True
@@ -939,7 +944,7 @@ Options:
             # (and while excepthook is set)
             sys.stdout.flush()
         except ConfigParser.ParsingError as e:
-            error('Error parsing %s: %s' % (self.cfgfile, e.message))
+            error('Error parsing %s: %s' % (self.cfgfile, "".join(e.args)))
             sys.exit(1)
         except ConfigParser.NoSectionError as e:
             error('Section not found: %s' % e.section)
