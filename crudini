@@ -51,7 +51,7 @@ class CrudiniInputFilter():
         line = self.fp.readline()
         # XXX: This doesn't handle ;inline comments.
         # Really should be done within inparse.
-        if (line and line[0] not in '[ \t#;\n'
+        if (line and line[0] not in '[ \t#;\n\r'
            and '=' not in line and ':' not in line):
             self.crudini_no_arg = True
             line = line[:-1] + ' = crudini_no_arg\n'
