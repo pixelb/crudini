@@ -499,3 +499,7 @@ for param in param{1..3} colon{1..2} new; do
 done
 crudini --set noequals.ini noequals new_equals '' || fail
 diff -u noequals.ini noequals_new.ini && ok || fail
+
+# Test can read windows format files
+printf '%s\r\n' '' 'param = value' > test.ini
+crudini --get test.ini DEFAULT param > /dev/null || fail
