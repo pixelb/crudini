@@ -7,10 +7,10 @@
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GPLv2, the GNU General Public License version 2, as
 # published by the Free Software Foundation. http://gnu.org/licenses/gpl.html
+from __future__ import print_function
 
 import atexit
-from io import StringIO
-import configparser
+import sys
 import contextlib
 import errno
 import getopt
@@ -20,8 +20,14 @@ import os
 import pipes
 import shutil
 import string
-import sys
 import tempfile
+
+if sys.version_info[0] >= 3:
+    from io import StringIO
+    import configparser
+else:
+    from cStringIO import StringIO
+    import ConfigParser as configparser
 
 
 def error(message=None):
@@ -352,7 +358,10 @@ class Crudini():
                 st = os.stat(name)
                 os.fchown(f, st.st_uid, st.st_gid)
 
-            os.write(f, data)
+            if sys.version_info[0] >= 3:
+                os.write(f, bytearray(data, 'utf-8'))
+            else:
+                os.write(f, data)
             # We assume the existing file is persisted,
             # so sync here to ensure new data is persisted
             # before referencing it.  Otherwise the metadata could
@@ -589,7 +598,10 @@ Options:
 
     def _chksum(self, data):
         h = hashlib.sha256()
-        h.update(data)
+        if sys.version_info[0] >= 3:
+            h.update(bytearray(data, 'utf-8'))
+        else:
+            h.update(data)
         return h.digest()
 
     def _parse_file(self, filename, add_default=False, preserve_case=False):
@@ -929,9 +941,9 @@ Options:
                         return pipes.quote(val).replace('\n', '\\n')
                     what = ' '.join(map(quote_val,
                                         list(filter(bool,
-                                               [self.mode, self.cfgfile,
-                                                self.section, self.param,
-                                                self.value]))))
+                                                    [self.mode, self.cfgfile,
+                                                     self.section, self.param,
+                                                     self.value]))))
                     sys.stderr.write('%s: %s\n' %
                                      (('unchanged', 'changed')[changed], what))
 
@@ -948,10 +960,14 @@ Options:
             error('Parameter not found: %s' % self.param)
             sys.exit(1)
         except EnvironmentError as e:
-            # Handle EPIPE as python doesn't catch SIGPIPE
+            # Handle EPIPE as python 2 doesn't catch SIGPIPE
             if e.errno != errno.EPIPE:
                 error(str(e))
                 sys.exit(1)
+            # Python3 fix for exception on exit:
+            # https://docs.python.org/3/library/signal.html#note-on-sigpipe
+            nullf = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(nullf, sys.stdout.fileno())
 
 
 def main():
