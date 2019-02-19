@@ -32,7 +32,7 @@ else:
 
 def error(message=None):
     if message:
-        sys.stderr.write(message+'\n')
+        sys.stderr.write(message + '\n')
 
 
 def delete_if_exists(path):
@@ -57,8 +57,8 @@ class CrudiniInputFilter():
         line = self.fp.readline()
         # XXX: This doesn't handle ;inline comments.
         # Really should be done within inparse.
-        if (line and line[0] not in '[ \t#;\n\r'
-           and '=' not in line and ':' not in line):
+        if (line and line[0] not in '[ \t#;\n\r' and
+           '=' not in line and ':' not in line):
             self.crudini_no_arg = True
             line = line[:-1] + ' = crudini_no_arg\n'
         return line
@@ -349,7 +349,7 @@ class Crudini():
 
         To avoid the above caveats see the --inplace option.
         """
-        (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
+        (f, tmp) = tempfile.mkstemp(".tmp", prefix=name + ".", dir=".")
 
         with Crudini.remove_file_on_error(tmp):
             shutil.copystat(name, tmp)
@@ -376,7 +376,7 @@ class Crudini():
             elif os.name == 'posix':
                 os.rename(tmp, name)  # atomic on POSIX
             else:
-                backup = tmp+'.backup'
+                backup = tmp + '.backup'
                 os.rename(name, backup)
                 os.rename(tmp, name)
                 delete_if_exists(backup)
@@ -973,6 +973,7 @@ Options:
 def main():
     crudini = Crudini()
     return crudini.run()
+
 
 if __name__ == "__main__":
     sys.exit(main())
