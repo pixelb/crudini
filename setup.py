@@ -15,7 +15,7 @@ setup(
     description=("A utility for manipulating ini files"),
     license="GPLv2",
     keywords="ini config edit",
-    url="http://github.com/xgaia/crudini",
+    url="http://github.com/pixelb/crudini",
     long_description=read('README'),
     classifiers=[
         "Development Status :: 5 - Production/Stable",

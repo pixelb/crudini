@@ -355,7 +355,6 @@ class Crudini(object):
             if hasattr(os, 'fchown') and os.geteuid() == 0:
                 st = os.stat(name)
                 os.fchown(f, st.st_uid, st.st_gid)
-            print(data)
             os.write(f, bytes(data, 'utf-8'))
             # We assume the existing file is persisted,
             # so sync here to ensure new data is persisted
