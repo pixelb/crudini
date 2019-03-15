@@ -15,7 +15,7 @@ setup(
     description=("A utility for manipulating ini files"),
     license="GPLv2",
     keywords="ini config edit",
-    url="http://github.com/pixelb/crudini",
+    url="http://github.com/xgaia/crudini",
     long_description=read('README'),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -23,6 +23,7 @@ setup(
         "Topic :: System :: Systems Administration",
         "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
         "Programming Language :: Python :: 2",
+        "Programming Language :: Python :: 3",
     ],
     install_requires=['iniparse>=0.3.2'],
     scripts=["crudini"]
