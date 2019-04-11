@@ -7,10 +7,10 @@
 # This program is free software; you can redistribute it and/or modify it
 # under the terms of the GPLv2, the GNU General Public License version 2, as
 # published by the Free Software Foundation. http://gnu.org/licenses/gpl.html
+from __future__ import print_function
 
 import atexit
-from cStringIO import StringIO
-import ConfigParser
+import sys
 import contextlib
 import errno
 import getopt
@@ -20,13 +20,19 @@ import os
 import pipes
 import shutil
 import string
-import sys
 import tempfile
+
+if sys.version_info[0] >= 3:
+    from io import StringIO
+    import configparser
+else:
+    from cStringIO import StringIO
+    import ConfigParser as configparser
 
 
 def error(message=None):
     if message:
-        sys.stderr.write(message+'\n')
+        sys.stderr.write(message + '\n')
 
 
 def delete_if_exists(path):
@@ -36,7 +42,7 @@ def delete_if_exists(path):
         os.unlink(path)
     except EnvironmentError as e:
         if e.errno != errno.ENOENT:
-            print str(e)
+            print(str(e))
             raise
 
 
@@ -51,8 +57,8 @@ class CrudiniInputFilter():
         line = self.fp.readline()
         # XXX: This doesn't handle ;inline comments.
         # Really should be done within inparse.
-        if (line and line[0] not in '[ \t#;\n\r'
-           and '=' not in line and ':' not in line):
+        if (line and line[0] not in '[ \t#;\n\r' and
+           '=' not in line and ':' not in line):
             self.crudini_no_arg = True
             line = line[:-1] + ' = crudini_no_arg\n'
         return line
@@ -213,7 +219,7 @@ class Print():
         :param section: str
         """
 
-        print section
+        print(section)
 
     def name_value(self, name, value, section=None):
         """Print parameter.
@@ -225,19 +231,19 @@ class Print():
 
         if value == 'crudini_no_arg':
             value = ''
-        print name or value
+        print(name or value)
 
 
 class PrintIni(Print):
     """Use for ini output format."""
 
     def section_header(self, section):
-        print "[%s]" % section
+        print("[%s]" % section)
 
     def name_value(self, name, value, section=None):
         if value == 'crudini_no_arg':
             value = ''
-        print name, '=', value.replace('\n', '\n ')
+        print(name, '=', value.replace('\n', '\n '))
 
 
 class PrintLines(Print):
@@ -256,7 +262,7 @@ class PrintLines(Print):
             value = ''
         if value:
             line += ' = %s' % value.replace('\n', '\\n')
-        print line
+        print(line)
 
 
 class PrintSh(Print):
@@ -321,7 +327,7 @@ class Crudini():
         except Exception:
             t, v, tb = sys.exc_info()
             delete_if_exists(path)
-            raise t, v, tb
+            raise t(v).with_traceback(tb)
 
     @staticmethod
     def file_replace(name, data):
@@ -343,7 +349,7 @@ class Crudini():
 
         To avoid the above caveats see the --inplace option.
         """
-        (f, tmp) = tempfile.mkstemp(".tmp", prefix=name+".", dir=".")
+        (f, tmp) = tempfile.mkstemp(".tmp", prefix=name + ".", dir=".")
 
         with Crudini.remove_file_on_error(tmp):
             shutil.copystat(name, tmp)
@@ -352,7 +358,10 @@ class Crudini():
                 st = os.stat(name)
                 os.fchown(f, st.st_uid, st.st_gid)
 
-            os.write(f, data)
+            if sys.version_info[0] >= 3:
+                os.write(f, bytearray(data, 'utf-8'))
+            else:
+                os.write(f, data)
             # We assume the existing file is persisted,
             # so sync here to ensure new data is persisted
             # before referencing it.  Otherwise the metadata could
@@ -367,7 +376,7 @@ class Crudini():
             elif os.name == 'posix':
                 os.rename(tmp, name)  # atomic on POSIX
             else:
-                backup = tmp+'.backup'
+                backup = tmp + '.backup'
                 os.rename(name, backup)
                 os.rename(tmp, name)
                 delete_if_exists(backup)
@@ -492,7 +501,7 @@ Options:
                 'version'
             ]
             opts, args = getopt.getopt(sys.argv[1:], '', long_options)
-        except getopt.GetoptError, e:
+        except getopt.GetoptError as e:
             error(str(e))
             self.usage(1)
 
@@ -500,7 +509,7 @@ Options:
             if o in ('--help',):
                 self.usage(0)
             elif o in ('--version',):
-                print 'crudini 0.9'
+                print('crudini 0.9')
                 sys.exit(0)
             elif o in ('--verbose',):
                 self.verbose = True
@@ -589,7 +598,10 @@ Options:
 
     def _chksum(self, data):
         h = hashlib.sha256()
-        h.update(data)
+        if sys.version_info[0] >= 3:
+            h.update(bytearray(data, 'utf-8'))
+        else:
+            h.update(data)
         return h.digest()
 
     def _parse_file(self, filename, add_default=False, preserve_case=False):
@@ -651,14 +663,14 @@ Options:
                     )
                     self.added_default_section = True
 
-        except ConfigParser.MissingSectionHeaderError:
+        except configparser.MissingSectionHeaderError:
             conf = self._parse_file(
                 filename,
                 add_default=True,
                 preserve_case=preserve_case
             )
             self.added_default_section = True
-        except ConfigParser.ParsingError as e:
+        except configparser.ParsingError as e:
             error(str(e))
             sys.exit(1)
 
@@ -674,14 +686,14 @@ Options:
                     section == iniparse.DEFAULTSECT or
                     self.conf.has_section(section)
                 ):
-                    raise ConfigParser.NoSectionError(section)
+                    raise configparser.NoSectionError(section)
             else:
                 try:
                     curr_val = self.conf.get(section, param)
-                except ConfigParser.NoSectionError:
+                except configparser.NoSectionError:
                     if self.update == 'section':
                         raise
-                except ConfigParser.NoOptionError:
+                except configparser.NoOptionError:
                     if self.update == 'param':
                         raise
         elif (section != iniparse.DEFAULTSECT and
@@ -699,7 +711,7 @@ Options:
             if self.update not in ('param', 'section'):
                 try:
                     curr_val = self.conf.get(section, param)
-                except ConfigParser.NoOptionError:
+                except configparser.NoOptionError:
                     if self.mode == "--del":
                         return
             if value is None:
@@ -732,11 +744,11 @@ Options:
                 # XXX: Note this doesn't update an item in section
                 # if matching value also in default (global) section.
                 if defaults_to_strip.get(item[0]) != item[1]:
-                    ignore_errs = (ConfigParser.NoOptionError,)
+                    ignore_errs = (configparser.NoOptionError,)
                     if self.section is not None:
                         msection = self.section
                     elif self.update not in ('param', 'section'):
-                        ignore_errs += (ConfigParser.NoSectionError,)
+                        ignore_errs += (configparser.NoSectionError,)
                     try:
                         set_param = True
                         self.set_name_value(msection, item[0], item[1])
@@ -756,13 +768,13 @@ Options:
             else:
                 if not self.conf.remove_section(self.section) \
                    and self.update in ('param', 'section'):
-                    raise ConfigParser.NoSectionError(self.section)
+                    raise configparser.NoSectionError(self.section)
         elif self.value is None:
             try:
                 if not self.conf.remove_option(self.section, self.param) \
                    and self.update == 'param':
-                    raise ConfigParser.NoOptionError(self.section, self.param)
-            except ConfigParser.NoSectionError:
+                    raise configparser.NoOptionError(self.section, self.param)
+            except configparser.NoSectionError:
                 if self.update in ('param', 'section'):
                     raise
         else:  # remove item from list
@@ -928,35 +940,40 @@ Options:
                     def quote_val(val):
                         return pipes.quote(val).replace('\n', '\\n')
                     what = ' '.join(map(quote_val,
-                                        filter(bool,
-                                               [self.mode, self.cfgfile,
-                                                self.section, self.param,
-                                                self.value])))
+                                        list(filter(bool,
+                                                    [self.mode, self.cfgfile,
+                                                     self.section, self.param,
+                                                     self.value]))))
                     sys.stderr.write('%s: %s\n' %
                                      (('unchanged', 'changed')[changed], what))
 
             # Finish writing now to consistently handle errors here
             # (and while excepthook is set)
             sys.stdout.flush()
-        except ConfigParser.ParsingError as e:
+        except configparser.ParsingError as e:
             error('Error parsing %s: %s' % (self.cfgfile, e.message))
             sys.exit(1)
-        except ConfigParser.NoSectionError as e:
+        except configparser.NoSectionError as e:
             error('Section not found: %s' % e.section)
             sys.exit(1)
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             error('Parameter not found: %s' % self.param)
             sys.exit(1)
         except EnvironmentError as e:
-            # Handle EPIPE as python doesn't catch SIGPIPE
+            # Handle EPIPE as python 2 doesn't catch SIGPIPE
             if e.errno != errno.EPIPE:
                 error(str(e))
                 sys.exit(1)
+            # Python3 fix for exception on exit:
+            # https://docs.python.org/3/library/signal.html#note-on-sigpipe
+            nullf = os.open(os.devnull, os.O_WRONLY)
+            os.dup2(nullf, sys.stdout.fileno())
 
 
 def main():
     crudini = Crudini()
     return crudini.run()
+
 
 if __name__ == "__main__":
     sys.exit(main())
