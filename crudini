@@ -646,6 +646,9 @@ Options:
         if filename != '-':
             self.locked_file = LockedFile(filename, self.mode, self.inplace,
                                           not self.update)
+        elif not sys.stdin:
+            error("stdin is closed")
+            sys.exit(1)
 
         try:
             conf = self._parse_file(filename, preserve_case=preserve_case)
@@ -840,7 +843,7 @@ Options:
                         self._print.name_value(None, None, section)
 
     def run(self):
-        if sys.stdin.isatty():
+        if sys.stdin and sys.stdin.isatty():
             sys.excepthook = Crudini.cli_exception
 
         Crudini.init_iniparse_defaultsect()

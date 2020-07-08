@@ -502,4 +502,7 @@ diff -u noequals.ini noequals_new.ini && ok || fail
 
 # Test can read windows format files
 printf '%s\r\n' '' 'param = value' > test.ini
-crudini --get test.ini DEFAULT param > /dev/null || fail
+crudini --get test.ini DEFAULT param > /dev/null && ok || fail
+
+# Test closed stdin
+(0<&- crudini --help >/dev/null) && ok || fail
