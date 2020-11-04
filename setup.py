@@ -27,6 +27,6 @@ setup(
         "Programming Language :: Python :: 2",
         "Programming Language :: Python :: 3",
     ],
-    install_requires=['iniparse>=0.3.2'],
+    install_requires=['iniparse>=0.5'],
     scripts=["crudini"]
 )
