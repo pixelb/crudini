@@ -17,7 +17,8 @@ setup(
     license="GPLv2",
     keywords="ini config edit",
     url="http://github.com/pixelb/crudini",
-    long_description=read('README'),
+    long_description="```\n" + read('README') + "```\n",
+    long_description_content_type="text/markdown",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Topic :: Utilities",
