@@ -449,7 +449,7 @@ class Crudini():
         output.write("""\
 A utility for manipulating ini files
 
-Usage: %s --set [OPTION]...   config_file section   [param] [value]
+Usage: %s --set [OPTION]...   config_file section|''   [param] [value]
   or:  %s --get [OPTION]...   config_file [section] [param]
   or:  %s --del [OPTION]...   config_file section   [param] [list value]
   or:  %s --merge [OPTION]... config_file [section]

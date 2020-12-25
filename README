@@ -1,6 +1,6 @@
 crudini - A utility for manipulating ini files
 
-Usage: crudini --set [OPTION]...   config_file section   [param] [value]
+Usage: crudini --set [OPTION]...   config_file section|''   [param] [value]
   or:  crudini --get [OPTION]...   config_file [section] [param]
   or:  crudini --del [OPTION]...   config_file section   [param] [list value]
   or:  crudini --merge [OPTION]... config_file [section]
