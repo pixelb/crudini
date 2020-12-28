@@ -5,6 +5,10 @@ Usage: crudini --set [OPTION]...   config_file section   [param] [value]
   or:  crudini --del [OPTION]...   config_file section   [param] [list value]
   or:  crudini --merge [OPTION]... config_file [section]
 
+  SECTION can be empty ('') or 'DEFAULT' in which case,
+  params not in a section, i.e. global parameters are operated on.
+  If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
+
 Options:
 
   --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
