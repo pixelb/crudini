@@ -29,6 +29,10 @@ else:
     from cStringIO import StringIO
     import ConfigParser as configparser
 
+for _name in ('stdin', 'stdout', 'stderr'):
+    if getattr(sys, _name) is None:
+        setattr(sys, _name, open(os.devnull, 'r' if _name == 'stdin' else 'w'))
+
 
 def error(message=None):
     if message:
