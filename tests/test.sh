@@ -506,3 +506,8 @@ crudini --get test.ini DEFAULT param > /dev/null && ok || fail
 
 # Test closed stdin
 (0<&- crudini --help >/dev/null) && ok || fail
+
+# Test closed stdout
+(>&- crudini --get test.ini section param value 2>/dev/null) && fail || ok
+(>&- crudini --set - section param value 2>/dev/null) && fail || ok
+(>&- crudini --set test.ini section param value) && ok || fail

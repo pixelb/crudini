@@ -445,7 +445,10 @@ class Crudini():
 
     def usage(self, exitval=0):
         cmd = os.path.basename(sys.argv[0])
-        output = sys.stderr if exitval else sys.stdout
+        if exitval or not sys.stdout:
+            output = sys.stderr
+        else:
+            output = sys.stdout
         output.write("""\
 A utility for manipulating ini files
 
@@ -555,6 +558,10 @@ Options:
 
         if not self.output:
             self.output = self.cfgfile
+
+        if (not sys.stdout) and (self.output == '-' or self.mode == '--get'):
+            error("stdout is closed")
+            sys.exit(1)
 
         if self.cfgfile is None:
             self.usage(1)
@@ -956,7 +963,8 @@ Options:
 
             # Finish writing now to consistently handle errors here
             # (and while excepthook is set)
-            sys.stdout.flush()
+            if sys.stdout:
+                sys.stdout.flush()
         except configparser.ParsingError as e:
             error('Error parsing %s: %s' % (self.cfgfile, e.message))
             sys.exit(1)
@@ -973,8 +981,9 @@ Options:
                 sys.exit(1)
             # Python3 fix for exception on exit:
             # https://docs.python.org/3/library/signal.html#note-on-sigpipe
-            nullf = os.open(os.devnull, os.O_WRONLY)
-            os.dup2(nullf, sys.stdout.fileno())
+            if sys.stdout:
+                nullf = os.open(os.devnull, os.O_WRONLY)
+                os.dup2(nullf, sys.stdout.fileno())
 
 
 def main():
