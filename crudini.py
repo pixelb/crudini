@@ -45,6 +45,18 @@ def delete_if_exists(path):
             print(str(e))
             raise
 
+def file_is_closed(stdfile):
+    if not stdfile:
+        # python3 sets sys.stdin etc. to None if closed
+        return True
+    else:
+        # python2 needs to be checked
+        try:
+            os.fstat(stdfile.fileno())
+        except EnvironmentError as e:
+            if e.errno == errno.EBADF:
+                return True
+    return False
 
 # TODO: support configurable options for various ini variants.
 # For now just support parameters without '=' specified
@@ -445,7 +457,7 @@ class Crudini():
 
     def usage(self, exitval=0):
         cmd = os.path.basename(sys.argv[0])
-        if exitval or not sys.stdout:
+        if exitval or file_is_closed(sys.stdout):
             output = sys.stderr
         else:
             output = sys.stdout
@@ -559,7 +571,8 @@ Options:
         if not self.output:
             self.output = self.cfgfile
 
-        if (not sys.stdout) and (self.output == '-' or self.mode == '--get'):
+        if file_is_closed(sys.stdout) \
+           and (self.output == '-' or self.mode == '--get'):
             error("stdout is closed")
             sys.exit(1)
 
@@ -657,7 +670,7 @@ Options:
         if filename != '-':
             self.locked_file = LockedFile(filename, self.mode, self.inplace,
                                           not self.update)
-        elif not sys.stdin:
+        elif file_is_closed(sys.stdin):
             error("stdin is closed")
             sys.exit(1)
 
@@ -854,7 +867,7 @@ Options:
                         self._print.name_value(None, None, section)
 
     def run(self):
-        if sys.stdin and sys.stdin.isatty():
+        if not file_is_closed(sys.stdin) and sys.stdin.isatty():
             sys.excepthook = Crudini.cli_exception
 
         Crudini.init_iniparse_defaultsect()
@@ -963,7 +976,7 @@ Options:
 
             # Finish writing now to consistently handle errors here
             # (and while excepthook is set)
-            if sys.stdout:
+            if not file_is_closed(sys.stdout):
                 sys.stdout.flush()
         except configparser.ParsingError as e:
             error('Error parsing %s: %s' % (self.cfgfile, e.message))
@@ -981,7 +994,7 @@ Options:
                 sys.exit(1)
             # Python3 fix for exception on exit:
             # https://docs.python.org/3/library/signal.html#note-on-sigpipe
-            if sys.stdout:
+            if not file_is_closed(sys.stdout):
                 nullf = os.open(os.devnull, os.O_WRONLY)
                 os.dup2(nullf, sys.stdout.fileno())
 
