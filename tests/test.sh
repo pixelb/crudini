@@ -4,7 +4,7 @@ trap "exit 130" INT
 cleanup() { rm -f err noequals*.ini test.ini ltest.ini good.ini example.ini; exit; }
 trap cleanup EXIT
 
-export PATH=..:$PATH
+crudini() { ../crudini.py "$@"; }
 
 test=0
 
