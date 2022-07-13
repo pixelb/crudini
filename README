@@ -12,10 +12,12 @@ Usage: crudini --set [OPTION]...   config_file section   [param] [value]
 Options:
 
   --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
-                       where WHAT is 'file', 'section', or 'param', or if
-                       not specified; all specified items.
+                       where WHAT is 'file', 'section', or 'param',
+                       or if WHAT not specified; all specified items.
   --format=FMT       For --get, select the output FMT.
-                       Formats are sh,ini,lines
+                       Formats are 'sh','ini','lines'
+  --ini-options=OPT  Set options for handling ini files.  Options are:
+                       'nospace': use format name=value not name = value
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.
@@ -68,3 +70,9 @@ Examples:
 # compare two ini files using standard UNIX text processing
   diff <(crudini --get --format=lines file1.ini|sort) \
        <(crudini --get --format=lines file2.ini|sort)
+
+# Rewrite ini file to use name=value format rather than name = value
+  crudini --ini-options=nospace --set config_file ''
+
+# Add/Update a var, ensuring complete file in name=value format
+  crudini --ini-options=nospace --set config_file section parameter value

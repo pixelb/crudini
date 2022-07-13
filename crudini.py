@@ -18,6 +18,7 @@ import hashlib
 import iniparse
 import os
 import pipes
+import re
 import shutil
 import string
 import tempfile
@@ -45,6 +46,7 @@ def delete_if_exists(path):
             print(str(e))
             raise
 
+
 def file_is_closed(stdfile):
     if not stdfile:
         # python3 sets sys.stdin etc. to None if closed
@@ -58,29 +60,44 @@ def file_is_closed(stdfile):
                 return True
     return False
 
-# TODO: support configurable options for various ini variants.
-# For now just support parameters without '=' specified
+
+# Adjustments to iniparse to optionally use name=value format (nospace)
+# and support for parameters without '=' specified
 class CrudiniInputFilter():
-    def __init__(self, fp):
+    def __init__(self, fp, iniopt):
         self.fp = fp
+        self.iniopt = iniopt
         self.crudini_no_arg = False
+        self.delimiter_spacing = re.compile(r'(.*?)\s*([:=])\s*(.*)')
 
     def readline(self):
         line = self.fp.readline()
         # XXX: This doesn't handle ;inline comments.
-        # Really should be done within inparse.
-        if (line and line[0] not in '[ \t#;\n\r' and
-           '=' not in line and ':' not in line):
-            self.crudini_no_arg = True
-            line = line[:-1] + ' = crudini_no_arg\n'
+        # Really should be done within iniparse.
+        if line and line[0] not in '[ \t#;\n\r':
+
+            if '=' not in line and ':' not in line:
+                self.crudini_no_arg = True
+                line = line[:-1] + ' = crudini_no_arg\n'
+            elif 'nospace' in self.iniopt:
+                # Convert _all_ existing params. New params are handled in
+                # the iniparse specialization in CrudiniConfigParser()
+
+                # Note if we wanted an option to only convert specified params
+                # we could do it with special ${value}_crudini_no_space values
+                # that were then adjusted on output like for crudini_no_arg
+                # But if need to remove the spacing, then should for all params
+
+                line = self.delimiter_spacing.sub(r'\1\2\3', line)
+
         return line
 
 
 # XXX: should be done in iniparse.  Used to
 # add support for ini files without a section
 class AddDefaultSection(CrudiniInputFilter):
-    def __init__(self, fp):
-        CrudiniInputFilter.__init__(self, fp)
+    def __init__(self, fp, iniopt):
+        CrudiniInputFilter.__init__(self, fp, iniopt)
         self.first = True
 
     def readline(self):
@@ -212,14 +229,25 @@ class LockedFile(FileLock):
 # Note we use RawConfigParser rather than SafeConfigParser
 # to avoid unwanted variable interpolation.
 # Note iniparse doesn't currently support allow_no_value=True.
+# Note iniparse doesn't currently support space_around_delimiters=False.
 class CrudiniConfigParser(iniparse.RawConfigParser):
-    def __init__(self, preserve_case=False):
+    def __init__(self, preserve_case=False, space_around_delimiters=True):
         iniparse.RawConfigParser.__init__(self)
         # Without the following we can't have params starting with "rem"!
         # We ignore lines starting with '%' which mercurial uses to include
         iniparse.change_comment_syntax('%;#', allow_rem=False)
         if preserve_case:
             self.optionxform = str
+        # Adjust iniparse separator to default to no space around equals
+        # Note this does NOT convert existing params with spaces,
+        # that's done in CrudiniInputFilter.readline().
+        # XXX: This couples with iniparse internals.
+        if not space_around_delimiters:
+
+            def new_ol_init(self, name, value, separator="=", *args, **kw):
+                orig_ol_init(self, name, value, separator, *args, **kw)
+            orig_ol_init = iniparse.ini.OptionLine.__init__
+            iniparse.ini.OptionLine.__init__ = new_ol_init
 
 
 class Print():
@@ -249,13 +277,23 @@ class Print():
 class PrintIni(Print):
     """Use for ini output format."""
 
+    def __init__(self):
+        self.sep = ' '
+
     def section_header(self, section):
         print("[%s]" % section)
 
     def name_value(self, name, value, section=None):
         if value == 'crudini_no_arg':
             value = ''
-        print(name, '=', value.replace('\n', '\n '))
+        print(name, '=', value.replace('\n', '\n '), sep=self.sep)
+
+
+class PrintIniNoSpace(PrintIni):
+    """Use for ini output format with no space around equals"""
+
+    def __init__(self):
+        self.sep = ''
 
 
 class PrintLines(Print):
@@ -311,8 +349,8 @@ class PrintSh(Print):
 
 
 class Crudini():
-    mode = fmt = update = inplace = cfgfile = output = section = param = \
-        value = vlist = listsep = verbose = None
+    mode = fmt = update = iniopt = inplace = cfgfile = output = section = \
+        param = value = vlist = listsep = verbose = None
 
     locked_file = None
     section_explicit_default = False
@@ -476,10 +514,12 @@ Usage: %s --set [OPTION]...   config_file section   [param] [value]
 Options:
 
   --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
-                       where WHAT is 'file', 'section', or 'param', or if
-                       not specified; all specified items.
+                       where WHAT is 'file', 'section', or 'param',
+                       or if WHAT not specified; all specified items.
   --format=FMT       For --get, select the output FMT.
-                       Formats are sh,ini,lines
+                       Formats are 'sh','ini','lines'
+  --ini-options=OPT  Set options for handling ini files.  Options are:
+                       'nospace': use format name=value not name = value
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.
@@ -510,6 +550,7 @@ Options:
                 'format=',
                 'get',
                 'help',
+                'ini-options=',
                 'inplace',
                 'list',
                 'list-sep=',
@@ -542,6 +583,12 @@ Options:
                 if self.fmt not in ('sh', 'ini', 'lines'):
                     error('--format not recognized: %s' % self.fmt)
                     self.usage(1)
+            elif o in ('--ini-options',):
+                self.iniopt = a.split(',')
+                for opt in self.iniopt:
+                    if opt not in ('nospace'):
+                        error('--ini-options not recognized: %s' % opt)
+                        self.usage(1)
             elif o in ('--existing',):
                 self.update = a or 'param'  # 'param' implies all must exist
                 if self.update not in ('file', 'section', 'param'):
@@ -604,12 +651,24 @@ Options:
             error("param names should not start with '[': %s" % self.param)
             sys.exit(1)
 
+        if not self.iniopt:
+            self.iniopt = ()
+        # A "param=with=equals = value" line can not be found with --get
+        # so avoid the ambiguity.  Restrict to 'nospace' to allow hack in
+        # https://github.com/pixelb/crudini/issues/33#issuecomment-1151253988
+        if 'nospace' in self.iniopt and self.param and '=' in self.param:
+            error("param names should not contain '=': %s" % self.param)
+            sys.exit(1)
+
         if self.fmt == 'lines':
             self._print = PrintLines()
         elif self.fmt == 'sh':
             self._print = PrintSh()
         elif self.fmt == 'ini':
-            self._print = PrintIni()
+            if 'nospace' in self.iniopt:
+                self._print = PrintIniNoSpace()
+            else:
+                self._print = PrintIni()
         else:
             self._print = Print()
 
@@ -651,11 +710,13 @@ Options:
 
             fp = StringIO(self.data)
             if add_default:
-                fp = AddDefaultSection(fp)
+                fp = AddDefaultSection(fp, self.iniopt)
             else:
-                fp = CrudiniInputFilter(fp)
+                fp = CrudiniInputFilter(fp, self.iniopt)
 
-            conf = CrudiniConfigParser(preserve_case=preserve_case)
+            conf = CrudiniConfigParser(preserve_case=preserve_case,
+                                       space_around_delimiters=(
+                                         'nospace' not in self.iniopt))
             conf.readfp(fp)
             self.crudini_no_arg = fp.crudini_no_arg
             return conf
