@@ -4,10 +4,10 @@
 
 if [ "$1" = '--help' ]; then
   printf '%s' 'crudini - '
-  ./crudini --help
+  ./crudini.py --help | sed 's/crudini\.py/crudini/g'
   echo
   cat EXAMPLES
 elif [ "$1" = '--version' ]; then
-  ./crudini --version
+  ./crudini.py --version
 fi
 
