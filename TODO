@@ -33,8 +33,3 @@ http://blog.oddbit.com/2013/11/22/a-unified-cli-for-op
 Note ini format supports name:value so quite a lot of overlap
 
 have pip install put man page in place
-
-Support spacing options for new items. I.E. allow to
-set=like_this rather than just set = like_this.
-This would have significance for shell like config formats
-when adding new parmeters. Maybe have --format=sh control this.

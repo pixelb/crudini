@@ -113,6 +113,9 @@ for mode in '' '--inplace'; do
   # Maintain space separation
   crudini $mode --set example.ini section1 nospace val
   grep -q '^nospace=val' example.ini && ok || fail
+
+  crudini $mode --ini-options= --set example.ini section1 nospace val
+  grep -q '^nospace=val' example.ini && ok || fail
 done
 
 # value is optional
@@ -511,3 +514,8 @@ crudini --get test.ini DEFAULT param > /dev/null && ok || fail
 (>&- crudini --get test.ini section param value 2>/dev/null) && fail || ok
 (>&- crudini --set - section param value 2>/dev/null) && fail || ok
 (>&- crudini --set test.ini section param value) && ok || fail
+
+# Test --ini-options=nospace
+diff -u <(crudini --output=- --ini-options=nospace \
+          --set nospace-in.ini '' new val) \
+        nospace-out.ini && ok || fail
