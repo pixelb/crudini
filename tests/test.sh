@@ -1,14 +1,18 @@
 #!/bin/bash
 
 trap "exit 130" INT
-cleanup() { rm -f err noequals*.ini test.ini ltest.ini good.ini example.ini; exit; }
-trap cleanup EXIT
+cleanup() { rm -f err noequals*.ini test.ini ltest.ini good.ini example.ini; exit "$1"; }
+trap 'cleanup $?' EXIT
 
 crudini() { ../crudini.py "$@"; }
 
 test=0
 
-fail() { test=$(($test+1)); echo "Test $test FAIL (line ${BASH_LINENO[0]})"; exit 1; }
+fail() {
+  test=$(($test+1))
+  printf "Test $test \033[1;31mFAIL\033[m (line ${BASH_LINENO[0]})\n"
+  exit 1
+}
 ok() { test=$(($test+1)); echo "Test $test OK (line ${BASH_LINENO[0]})"; }
 
 cp ../example.ini .
