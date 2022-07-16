@@ -462,6 +462,8 @@ crudini --list --existing --del example.ini list nolist1 v3 2>/dev/null && fail 
 printf '%s\n' 'empty' 'nonempty = 1' > test.ini
 crudini --list --set test.ini '' nonempty 2>/dev/null && ok || fail
 test "$(crudini --get test.ini '' nonempty 2>&1)" = '' && ok || fail
+crudini --list --set test.ini '' empty 'v1' 2>/dev/null && ok || fail
+test "$(crudini --get test.ini '' empty 2>&1)" = 'v1' && ok || fail
 
 # --------------------------------------------------------
 

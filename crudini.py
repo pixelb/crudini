@@ -470,7 +470,7 @@ class Crudini():
     def update_list(curr_val, item, mode, sep):
         curr_items = []
         use_space = True
-        if curr_val:
+        if curr_val and curr_val != 'crudini_no_arg':
             if sep is None:
                 use_space = ' ' in curr_val or ',' not in curr_val
                 curr_items = [v.strip() for v in curr_val.split(",")]
