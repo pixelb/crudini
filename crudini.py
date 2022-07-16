@@ -68,17 +68,27 @@ class CrudiniInputFilter():
         self.fp = fp
         self.iniopt = iniopt
         self.crudini_no_arg = False
-        self.delimiter_spacing = re.compile(r'(.*?)\s*([:=])\s*(.*)')
+        self.windows_eol = False
+        # Note [ \t] used rather than \s to avoid adjusting \r\n when no value
+        # Unicode spacing around the delimiter would be very unusual anyway
+        self.delimiter_spacing = re.compile(r'(.*?)[ \t]*([:=])[ \t]*(.*)')
 
     def readline(self):
         line = self.fp.readline()
         # XXX: This doesn't handle ;inline comments.
         # Really should be done within iniparse.
+
+        # Detect windows format files
+        # so we can undo iniparse auto conversion to unix
+        if ((not self.windows_eol) and line and len(line) >= 2
+           and line[-2] == '\r'):
+            self.windows_eol = True
+
         if line and line[0] not in '[ \t#;\n\r':
 
             if '=' not in line and ':' not in line:
                 self.crudini_no_arg = True
-                line = line[:-1] + ' = crudini_no_arg\n'
+                line = line.rstrip() + ' = crudini_no_arg\n'
 
             if 'nospace' in self.iniopt:
                 # Convert _all_ existing params. New params are handled in
@@ -171,6 +181,7 @@ class LockedFile(FileLock):
         atexit.register(self.delete)
 
         open_mode = os.O_RDONLY
+        open_args = {}
         if operation != "--get":
             # We're only reading here, but we check now for write
             # permissions we'll need in --inplace case to avoid
@@ -181,8 +192,13 @@ class LockedFile(FileLock):
             if create and operation != '--del':
                 open_mode += os.O_CREAT
 
+            # Don't convert line endings, so we maintain CRLF in files
+            if sys.version_info[0] >= 3:
+                open_args = {'newline': ''}
+
         try:
-            self.fp = os.fdopen(os.open(self.filename, open_mode, 0o666))
+            self.fp = os.fdopen(os.open(self.filename, open_mode, 0o666),
+                                **open_args)
             if inplace:
                 # In general readers (--get) are protected by file_replace(),
                 # but using read lock here gives AC of the ACID properties
@@ -193,7 +209,8 @@ class LockedFile(FileLock):
                 # The file may have been renamed since the open so recheck
                 while True:
                     self.lock()
-                    fpnew = os.fdopen(os.open(self.filename, open_mode, 0o666))
+                    fpnew = os.fdopen(os.open(self.filename, open_mode, 0o666),
+                                      **open_args)
                     if os.path.sameopenfile(self.fp.fileno(), fpnew.fileno()):
                         # Note we don't fpnew.close() here as that would break
                         # any existing fcntl lock (fcntl.lockf is an fcntl lock
@@ -720,6 +737,7 @@ Options:
                                          'nospace' not in self.iniopt))
             conf.readfp(fp)
             self.crudini_no_arg = fp.crudini_no_arg
+            self.windows_eol = fp.windows_eol
             return conf
         except EnvironmentError as e:
             error(str(e))
@@ -1021,6 +1039,12 @@ Options:
                         str_data = str_data[len(default_sect) + 1:]
                     else:
                         str_data = str_data.replace(default_sect, '', 1)
+
+                if self.windows_eol:
+                    # iniparse uses '\n' for new/updated items
+                    # so reset all to windows format
+                    str_data = str_data.replace('\r\n', '\n')
+                    str_data = str_data.replace('\n', '\r\n')
 
                 if self.crudini_no_arg:
                     spacing = '' if 'nospace' in self.iniopt else ' '

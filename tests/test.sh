@@ -528,8 +528,20 @@ test "$(crudini --ini-options=nospace --output=- --set noequals.ini \
         | grep param1)" = 'param1=value1' && ok || fail
 
 # Test can read windows format files
-printf '%s\r\n' '' 'param = value' > test.ini
-crudini --get test.ini DEFAULT param > /dev/null && ok || fail
+printf '%s\r\n' '' 'empty' 'param=value' > test.ini
+test "$(crudini --get test.ini DEFAULT param)" = 'value' && ok || fail
+# Test can maintain windows format files
+diff -u <(crudini --output=- --ini-options=nospace \
+          --set test.ini '' param value) \
+        test.ini && ok || fail
+printf '%s\r\n' '' 'empty=' > test.ini
+diff -u <(crudini --output=- --ini-options=nospace \
+          --set test.ini '' empty '') \
+        test.ini && ok || fail
+printf '%s\r\n' '' 'empty' > test.ini
+diff -u <(crudini --output=- --ini-options=nospace \
+          --set test.ini '' empty) \
+        test.ini && ok || fail
 
 # Test closed stdin
 (0<&- crudini --help >/dev/null) && ok || fail
