@@ -512,6 +512,21 @@ done
 crudini --set noequals.ini noequals new_equals '' || fail
 diff -u noequals.ini noequals_new.ini && ok || fail
 
+# Test updating of single token parameters
+#  Ensure no delimitier added with unspecified value
+test "$(crudini --output=- --set noequals.ini noequals param1 \
+        | grep param1)" = 'param1' && ok || fail
+#  Ensure delimitier added with unspecified value with --list
+test "$(crudini --list --output=- --set noequals.ini noequals param1 \
+        | grep param1)" = 'param1 = ' && ok || fail
+#  Ensure delimitier added with empty value
+test "$(crudini --output=- --set noequals.ini noequals param1 '' \
+        | grep param1)" = 'param1 = ' && ok || fail
+#  Ensure correct spacing with --ini-options=nospace
+test "$(crudini --ini-options=nospace --output=- --set noequals.ini \
+        noequals param1 value1 \
+        | grep param1)" = 'param1=value1' && ok || fail
+
 # Test can read windows format files
 printf '%s\r\n' '' 'param = value' > test.ini
 crudini --get test.ini DEFAULT param > /dev/null && ok || fail

@@ -79,7 +79,8 @@ class CrudiniInputFilter():
             if '=' not in line and ':' not in line:
                 self.crudini_no_arg = True
                 line = line[:-1] + ' = crudini_no_arg\n'
-            elif 'nospace' in self.iniopt:
+
+            if 'nospace' in self.iniopt:
                 # Convert _all_ existing params. New params are handled in
                 # the iniparse specialization in CrudiniConfigParser()
 
@@ -469,7 +470,7 @@ class Crudini():
     @staticmethod
     def update_list(curr_val, item, mode, sep):
         curr_items = []
-        use_space = True
+        use_space = True  # Perhaps have 'nospace' set this default?
         if curr_val and curr_val != 'crudini_no_arg':
             if sep is None:
                 use_space = ' ' in curr_val or ',' not in curr_val
@@ -796,16 +797,30 @@ Options:
                 self.conf.add_section(section)
 
         if param is not None:
-            if self.update not in ('param', 'section'):
-                try:
-                    curr_val = self.conf.get(section, param)
-                except configparser.NoOptionError:
-                    if self.mode == "--del":
+            try:
+                curr_val = self.conf.get(section, param)
+            except configparser.NoOptionError:
+                if self.mode == "--del":
+                    if self.update not in ('param', 'section'):
                         return
+
             if value is None:
+                # Unspecified param should clear list.  This will also force
+                # existing param "flags" or new params to use '=' delimiter.
                 if self.vlist:
                     curr_val = ''
-                value = 'crudini_no_arg' if self.crudini_no_arg else ''
+
+                if curr_val == 'crudini_no_arg':
+                    # param already exists without delimiter
+                    return
+                elif curr_val is None and self.crudini_no_arg:
+                    # some params exist without delimiter
+                    # so default new param to not use one
+                    value = 'crudini_no_arg'
+                else:
+                    # Otherwise use a delimeter
+                    value = ''
+
             if self.vlist:
                 value = self.update_list(
                     curr_val,
@@ -1008,12 +1023,9 @@ Options:
                         str_data = str_data.replace(default_sect, '', 1)
 
                 if self.crudini_no_arg:
-                    # This is the main case
-                    str_data = str_data.replace(' = crudini_no_arg', '')
-                    # Handle setting empty values for existing param= format
-                    str_data = str_data.replace('=crudini_no_arg', '=')
-                    # Handle setting empty values for existing colon: format
-                    str_data = str_data.replace(':crudini_no_arg', ':')
+                    spacing = '' if 'nospace' in self.iniopt else ' '
+                    str_data = str_data.replace('%s=%scrudini_no_arg' %
+                                                (spacing, spacing), '')
 
                 changed = self.chksum != self._chksum(str_data)
 
