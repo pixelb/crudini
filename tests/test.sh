@@ -458,6 +458,13 @@ test "$(crudini --get example.ini list list2)" = 'v1,v2' && ok || fail
 crudini --list --existing --del example.ini nolist list1 v3 2>/dev/null && fail || ok
 crudini --list --existing --del example.ini list nolist1 v3 2>/dev/null && fail || ok
 
+# Support clearing a list by not specifing a value
+printf '%s\n' 'empty' 'nonempty = 1' > test.ini
+crudini --list --set test.ini '' nonempty 2>/dev/null && ok || fail
+test "$(crudini --get test.ini '' nonempty 2>&1)" = '' && ok || fail
+
+# --------------------------------------------------------
+
 # support parsing from stdin
 test "$(printf '%s\n' global=1 | crudini --get - '' global)" = 1 && ok || fail
 

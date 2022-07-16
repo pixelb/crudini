@@ -803,6 +803,8 @@ Options:
                     if self.mode == "--del":
                         return
             if value is None:
+                if self.vlist:
+                    curr_val = ''
                 value = 'crudini_no_arg' if self.crudini_no_arg else ''
             if self.vlist:
                 value = self.update_list(
