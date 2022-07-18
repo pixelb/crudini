@@ -130,15 +130,15 @@ class FileLock(object):
         self.locked = False
 
         if os.name == 'nt':
-            import msvcrt
-
+            # XXX: msvcrt.locking is problematic on windows
+            # See the history of the portalocker implementation for example:
+            # https://github.com/WoLpH/portalocker/commits/develop/portalocker
+            # That would involve needing a new pywin32 dependency,
+            # so instead we avoid locking on windows for now.
             def lock(self):
-                msvcrt.locking(self.fp, msvcrt.LK_LOCK, 1)
                 self.locked = True
 
             def unlock(self):
-                if self.locked:
-                    msvcrt.locking(self.fp, msvcrt.LK_UNLCK, 1)
                 self.locked = False
 
         else:
@@ -186,7 +186,7 @@ class LockedFile(FileLock):
             # We're only reading here, but we check now for write
             # permissions we'll need in --inplace case to avoid
             # redundant processing.
-            # Also an exlusive lock needs write perms anyway.
+            # Also an exclusive lock needs write perms anyway.
             open_mode = os.O_RDWR
 
             if create and operation != '--del':
@@ -211,7 +211,8 @@ class LockedFile(FileLock):
                     self.lock()
                     fpnew = os.fdopen(os.open(self.filename, open_mode, 0o666),
                                       **open_args)
-                    if os.path.sameopenfile(self.fp.fileno(), fpnew.fileno()):
+                    if (os.name == 'nt' or
+                       os.path.sameopenfile(self.fp.fileno(), fpnew.fileno())):
                         # Note we don't fpnew.close() here as that would break
                         # any existing fcntl lock (fcntl.lockf is an fcntl lock
                         # despite the name).  We don't use flock() at present
@@ -440,7 +441,7 @@ class Crudini():
             os.close(f)
 
             if hasattr(os, 'replace'):  # >= python 3.3
-                os.replace(tmp, name)  # atomic even on windos
+                os.replace(tmp, name)  # atomic even on windows
             elif os.name == 'posix':
                 os.rename(tmp, name)  # atomic on POSIX
             else:
@@ -454,10 +455,13 @@ class Crudini():
             # rather than continuing to reference the old inode.
             # This also provides verification in exit status that
             # this update completes.
-            O_DIRECTORY = os.O_DIRECTORY if hasattr(os, 'O_DIRECTORY') else 0
-            dirfd = os.open(os.path.dirname(name) or '.', O_DIRECTORY)
-            os.fsync(dirfd)
-            os.close(dirfd)
+            if os.name != 'nt':
+                O_DIRECTORY = 0
+                if hasattr(os, 'O_DIRECTORY'):
+                    O_DIRECTORY = os.O_DIRECTORY
+                dirfd = os.open(os.path.dirname(name) or '.', O_DIRECTORY)
+                os.fsync(dirfd)
+                os.close(dirfd)
 
     @staticmethod
     def file_rewrite(name, data):
@@ -1056,6 +1060,12 @@ Options:
                 if self.output == '-':
                     sys.stdout.write(str_data)
                 elif changed:
+                    if os.name == 'nt':
+                        # Close input file as Windows gives access errors on
+                        # open files. For e.g. see caveats noted at:
+                        # https://bugs.python.org/issue46003
+                        self.locked_file.delete()
+
                     if self.inplace:
                         self.file_rewrite(self.output, str_data)
                     else:
