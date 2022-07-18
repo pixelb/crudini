@@ -68,7 +68,7 @@ class CrudiniInputFilter():
         self.fp = fp
         self.iniopt = iniopt
         self.crudini_no_arg = False
-        self.windows_eol = False
+        self.windows_eol = None
         # Note [ \t] used rather than \s to avoid adjusting \r\n when no value
         # Unicode spacing around the delimiter would be very unusual anyway
         self.delimiter_spacing = re.compile(r'(.*?)[ \t]*([:=])[ \t]*(.*)')
@@ -80,9 +80,11 @@ class CrudiniInputFilter():
 
         # Detect windows format files
         # so we can undo iniparse auto conversion to unix
-        if ((not self.windows_eol) and line and len(line) >= 2
-           and line[-2] == '\r'):
-            self.windows_eol = True
+        if self.windows_eol is None:
+            if line:
+                self.windows_eol = len(line) >= 2 and line[-2] == '\r'
+            else:
+                self.windows_eol = os.name == 'nt'
 
         if line and line[0] not in '[ \t#;\n\r':
 
@@ -474,7 +476,11 @@ class Crudini():
          - Less Durable as existing data truncated before I/O completes.
          - Requires write access to file rather than write access to dir.
         """
-        with open(name, 'w') as f:
+        # Don't convert line endings, so we maintain CRLF in files
+        if sys.version_info[0] >= 3:
+            open_args = {'newline': ''}
+
+        with open(name, 'w', **open_args) as f:
             f.write(data)
             f.flush()
             os.fsync(f.fileno())
