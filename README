@@ -5,7 +5,7 @@ Usage: crudini --set [OPTION]...   config_file section   [param] [value]
   or:  crudini --del [OPTION]...   config_file section   [param] [list value]
   or:  crudini --merge [OPTION]... config_file [section]
 
-  SECTION can be empty ('') or 'DEFAULT' in which case,
+  SECTION can be empty ("") or "DEFAULT" in which case,
   params not in a section, i.e. global parameters are operated on.
   If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
 
@@ -35,7 +35,7 @@ Examples:
 
 # Add/Update a var in the root or global area.
 # I.e. that's not under a [section].
-  crudini --set config_file '' parameter value
+  crudini --set config_file "" parameter value
 
 # Update an existing var
   crudini --set --existing config_file section parameter value
@@ -53,7 +53,7 @@ Examples:
   crudini --get config_file section parameter
 
 # output a global value not in a section
-  crudini --get config_file '' parameter
+  crudini --get config_file "" parameter
 
 # output a section
   crudini --get config_file section
@@ -72,7 +72,7 @@ Examples:
        <(crudini --get --format=lines file2.ini|sort)
 
 # Rewrite ini file to use name=value format rather than name = value
-  crudini --ini-options=nospace --set config_file ''
+  crudini --ini-options=nospace --set config_file ""
 
 # Add/Update a var, ensuring complete file in name=value format
   crudini --ini-options=nospace --set config_file section parameter value

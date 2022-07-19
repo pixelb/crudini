@@ -535,7 +535,7 @@ Usage: %s --set [OPTION]...   config_file section   [param] [value]
   or:  %s --del [OPTION]...   config_file section   [param] [list value]
   or:  %s --merge [OPTION]... config_file [section]
 
-  SECTION can be empty ('') or 'DEFAULT' in which case,
+  SECTION can be empty ("") or "DEFAULT" in which case,
   params not in a section, i.e. global parameters are operated on.
   If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
 
