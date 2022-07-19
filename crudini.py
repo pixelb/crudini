@@ -530,10 +530,12 @@ class Crudini():
         output.write("""\
 A utility for manipulating ini files
 
-Usage: %s --set [OPTION]...   config_file section   [param] [value]
-  or:  %s --get [OPTION]...   config_file [section] [param]
-  or:  %s --del [OPTION]...   config_file section   [param] [list value]
-  or:  %s --merge [OPTION]... config_file [section]
+Usage:
+
+  %s --set [OPTION]...   config_file section   [param] [value]
+  %s --get [OPTION]...   config_file [section] [param]
+  %s --del [OPTION]...   config_file section   [param] [list value]
+  %s --merge [OPTION]... config_file [section]
 
   SECTION can be empty ("") or "DEFAULT" in which case,
   params not in a section, i.e. global parameters are operated on.

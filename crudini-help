@@ -3,10 +3,15 @@
 # crudini --help generator for help2man and README
 
 if [ "$1" = '--help' ]; then
-  printf '%s' 'crudini - '
-  ./crudini.py --help | sed 's/crudini\.py/crudini/g'
+  {
+  printf '%s' '# crudini - '
+  ./crudini.py --help | sed 's/crudini\.py/crudini/g;'
   echo
   cat EXAMPLES
+  } | sed 's/^[^ ]\+:/```\n## &\n```/' |
+  sed '0,/```/{/```/d;}' # Delete first ```
+  echo '```'  # Add terminating ```
+  cat INSTALL # Already marked up
 elif [ "$1" = '--version' ]; then
   ./crudini.py --version
 fi

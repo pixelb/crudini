@@ -1,15 +1,20 @@
-crudini - A utility for manipulating ini files
+# crudini - A utility for manipulating ini files
 
-Usage: crudini --set [OPTION]...   config_file section   [param] [value]
-  or:  crudini --get [OPTION]...   config_file [section] [param]
-  or:  crudini --del [OPTION]...   config_file section   [param] [list value]
-  or:  crudini --merge [OPTION]... config_file [section]
+## Usage:
+```
+
+  crudini --set [OPTION]...   config_file section   [param] [value]
+  crudini --get [OPTION]...   config_file [section] [param]
+  crudini --del [OPTION]...   config_file section   [param] [list value]
+  crudini --merge [OPTION]... config_file [section]
 
   SECTION can be empty ("") or "DEFAULT" in which case,
   params not in a section, i.e. global parameters are operated on.
   If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
 
-Options:
+```
+## Options:
+```
 
   --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
                        where WHAT is 'file', 'section', or 'param',
@@ -28,7 +33,9 @@ Options:
   --help             Write this help to stdout
   --version          Write version to stdout
 
-Examples:
+```
+## Examples:
+```
 
 # Add/Update a var
   crudini --set config_file section parameter value
@@ -76,3 +83,29 @@ Examples:
 
 # Add/Update a var, ensuring complete file in name=value format
   crudini --ini-options=nospace --set config_file section parameter value
+```
+## Installation
+
+On windows ensure a python interpreter is installed.
+For example installing from https://www.python.org/downloads/
+will put the py launcher and pip in the PATH.
+
+Then ensure the iniparse module is installed by
+running the following from a "cmd" prompt:
+
+```
+pip install iniparse
+```
+
+Then crudini can be invoked by downloading just the crudini.py
+file and running like:
+
+```
+py crudini.py --help
+```
+
+On Linux systems crudini is generally available from your standard
+package manager, and installing will also ensure the iniparse
+dependency is appropriately installed on your system.
+You can also download and run the single crudini.py file directly
+to use latest version.

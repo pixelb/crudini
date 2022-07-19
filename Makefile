@@ -3,7 +3,7 @@ version = 0.9.3
 
 all:
 	help2man -n "manipulate ini files" -o crudini.1 -N ./crudini-help
-	./crudini-help --help > README
+	./crudini-help --help > README.md
 
 dist: all
 	mkdir ${name}-${version}
