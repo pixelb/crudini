@@ -17,16 +17,17 @@ import getopt
 import hashlib
 import iniparse
 import os
-import pipes
 import re
 import shutil
 import string
 import tempfile
 
 if sys.version_info[0] >= 3:
+    import shlex as pipes
     from io import StringIO
     import configparser
 else:
+    import pipes
     from cStringIO import StringIO
     import ConfigParser as configparser
 
