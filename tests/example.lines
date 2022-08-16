@@ -26,3 +26,4 @@
 [ non-sh-compat ] ls;name = val
 [ list ] list1 = v1, v2
 [ list ] list2 = v1,v2
+[ list ] list3 = \nv1\nv2

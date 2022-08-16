@@ -501,9 +501,24 @@ class Crudini():
         curr_items = []
         use_space = True  # Perhaps have 'nospace' set this default?
         if curr_val and curr_val != 'crudini_no_arg':
-            if sep is None:
+            if sep is None:  # Default to comma separated
                 use_space = ' ' in curr_val or ',' not in curr_val
                 curr_items = [v.strip() for v in curr_val.split(",")]
+            elif sep == '':  # Empty means whitespace separated
+                curr_items = curr_val.split(None)
+
+                # Find first run of whitespace to maintain current delimiter
+                whitespace_re = re.compile(r'\S*(\s+)')
+                first_whitespace = whitespace_re.match(curr_val)
+                if first_whitespace:
+                    sep = first_whitespace.group(1)
+                else:
+                    sep = ' '
+
+                # Maintain empty `param =` line if present
+                if sep == '\n' or sep == '\r\n':
+                    if curr_val.startswith(sep):
+                        curr_items.insert(0, '')
             else:
                 curr_items = curr_val.split(sep)
 
@@ -556,7 +571,8 @@ Options:
                        This is not atomic but has less restrictions
                        than the default replacement method.
   --list             For --set and --del, update a list (set) of values
-  --list-sep=STR     Delimit list values with \"STR\" instead of \" ,\"
+  --list-sep=STR     Delimit list values with \"STR\" instead of \" ,\".
+                       An empty STR means any whitespace is a delimiter.
   --output=FILE      Write output to FILE instead. '-' means stdout
   --verbose          Indicate on stderr if changes were made
   --help             Write this help to stdout

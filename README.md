@@ -27,7 +27,8 @@
                        This is not atomic but has less restrictions
                        than the default replacement method.
   --list             For --set and --del, update a list (set) of values
-  --list-sep=STR     Delimit list values with "STR" instead of " ,"
+  --list-sep=STR     Delimit list values with "STR" instead of " ,".
+                       An empty STR means any whitespace is a delimiter.
   --output=FILE      Write output to FILE instead. '-' means stdout
   --verbose          Indicate on stderr if changes were made
   --help             Write this help to stdout
@@ -47,8 +48,13 @@
 # Update an existing var
   crudini --set --existing config_file section parameter value
 
-# Add/Append a value to a space or comma separated list
+# Add/Append a value to a comma separated list
+# Note any whitespace around commas is ignored
   crudini --set --list config_file section parameter a_value
+
+# Add/Append a value to a whitespace separated list
+# Note multiline lists are supported (as newline is whitespace)
+  crudini --set --list --list-sep= config_file section parameter a_value
 
 # Delete a var
   crudini --del config_file section parameter

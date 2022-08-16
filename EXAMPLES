@@ -10,8 +10,13 @@ Examples:
 # Update an existing var
   crudini --set --existing config_file section parameter value
 
-# Add/Append a value to a space or comma separated list
+# Add/Append a value to a comma separated list
+# Note any whitespace around commas is ignored
   crudini --set --list config_file section parameter a_value
+
+# Add/Append a value to a whitespace separated list
+# Note multiline lists are supported (as newline is whitespace)
+  crudini --set --list --list-sep= config_file section parameter a_value
 
 # Delete a var
   crudini --del config_file section parameter

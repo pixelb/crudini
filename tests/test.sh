@@ -457,6 +457,10 @@ crudini --set example.ini list list2 'v1,v2,v3' || fail
 #  explicit
 crudini --list --list-sep=, --del example.ini list list2 v3 || fail
 test "$(crudini --get example.ini list list2)" = 'v1,v2' && ok || fail
+#  whitespace separated (while maintaining newline separation)
+crudini --list --list-sep= --set example.ini list list3 v2 || fail # ignored
+crudini --list --list-sep= --set example.ini list list3 v3 || fail
+test "$(crudini --get example.ini list list3)" = $'\nv1\nv2\nv3' && ok || fail
 
 # Delete honoring --existing
 crudini --list --existing --del example.ini nolist list1 v3 2>/dev/null && fail || ok
