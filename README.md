@@ -66,7 +66,7 @@
   crudini --get config_file section
 
 # output a section, parseable by shell
-  eval $(crudini --get --format=sh config_file section)
+  eval "$(crudini --get --format=sh config_file section)"
 
 # update an ini file from shell variable(s)
   echo name="$name" | crudini --merge config_file section
