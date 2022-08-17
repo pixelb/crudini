@@ -478,6 +478,7 @@ class Crudini():
          - Requires write access to file rather than write access to dir.
         """
         # Don't convert line endings, so we maintain CRLF in files
+        open_args = {}
         if sys.version_info[0] >= 3:
             open_args = {'newline': ''}
 
