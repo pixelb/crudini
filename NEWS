@@ -1,5 +1,25 @@
 crudini NEWS                                    -*- outline -*-
 
+* Noteworthy changes in release 0.9.4 (2022-12-23)
+
+** Bug fixes
+
+  Fix updating of flag only parameters so they
+  don't have '=' or '=crudini_no_arg' added added on update.
+
+  Handle closed stdin/stdout gracefully, without giving errors.
+
+** Improvements
+
+  Windows support.
+
+  Windows line endings are maintained.
+
+  Lists can be delimited with arbitrary whitespace with `--list-sep=`.
+
+  Support for unspaced "name=val" format with `--ini-options=nospace`.
+
+
 * Noteworthy changes in release 0.9.3 (2019-08-30)
 
 ** Bug fixes

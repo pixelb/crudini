@@ -615,7 +615,7 @@ Options:
             if o in ('--help',):
                 self.usage(0)
             elif o in ('--version',):
-                print('crudini 0.9.3')
+                print('crudini 0.9.4')
                 sys.exit(0)
             elif o in ('--verbose',):
                 self.verbose = True
