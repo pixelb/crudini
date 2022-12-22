@@ -4,11 +4,21 @@
 
 if [ "$1" = '--help' ]; then
   {
+  printf '%s' 'crudini - '
+  ./crudini.py --help | sed 's/crudini\.py/crudini/g;'
+  echo
+  cat EXAMPLES
+  }
+elif [ "$1" = '--markdown' ]; then
+  {
   printf '%s' '# crudini - '
   ./crudini.py --help | sed 's/crudini\.py/crudini/g;'
   echo
   cat EXAMPLES
-  } | sed 's/^[^ ]\+:/```\n## &\n```/' |
+  } |
+  sed 's/^\([^ ]\+:\)\( \+\)/\1\n/' | # Sections on own line
+  sed 's/^[^ ]\+:/```\n## &\n```/' | # Markup sections
+  sed 's/^ *or: *//' | # Delete help2man synopsis formatting
   sed '0,/```/{/```/d;}' # Delete first ```
   echo '```'  # Add terminating ```
   cat INSTALL # Already marked up
