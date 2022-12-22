@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# crudini --help generator for help2man and README
+# crudini --help generator for help2man and README.md
 
 if [ "$1" = '--help' ]; then
   {
