@@ -379,6 +379,7 @@ class Crudini():
     data = None
     conf = None
     added_default_section = False
+    ini_section_blanks = []
     _print = None
 
     # The following exits cleanly on Ctrl-C,
@@ -839,7 +840,8 @@ Options:
                 # Note this always adds a '\n' before the section name
                 # resulting in double spaced sections or blank line at
                 # the start of a new file to which a new section is added.
-                # We handle the empty file case at least when writing.
+                # List the sections here to adjust when writing.
+                self.ini_section_blanks.append(section)
                 self.conf.add_section(section)
 
         if param is not None:
@@ -1067,6 +1069,12 @@ Options:
                         str_data = str_data[len(default_sect) + 1:]
                     else:
                         str_data = str_data.replace(default_sect, '', 1)
+
+                # Remove extraneous blanks added by iniparse.
+                # Note iniparse also has a tidy() function to do globally
+                for section in self.ini_section_blanks:
+                    section_s = '\n[%s]\n' % section
+                    str_data = str_data.replace(section_s, section_s[1:], 1)
 
                 if self.windows_eol:
                     # iniparse uses '\n' for new/updated items

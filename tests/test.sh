@@ -166,7 +166,7 @@ crudini --set --existing test.ini '' gname2 val 2>/dev/null && fail
 crudini --set test.ini section1 name val
 crudini --set --existing test.ini section1 name val2
 crudini --set --existing test.ini section1 name2 val 2>/dev/null && fail
-printf '%s\n' 'gname = val2' '' '' '[section1]' 'name = val2' > good.ini
+printf '%s\n' 'gname = val2' '' '[section1]' 'name = val2' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 # --existing=section
@@ -178,7 +178,7 @@ crudini --set test.ini section1 name val
 crudini --set --existing='section' test.ini section1 name val2
 crudini --set --existing='section' test.ini section1 name2 val 2>/dev/null || fail
 printf '%s\n' 'gname = val2' 'gname2 = val' \
-       '' '' '[section1]' 'name = val2' 'name2 = val' > good.ini
+       '' '[section1]' 'name = val2' 'name2 = val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 # --get -------------------------------------------------
@@ -251,7 +251,7 @@ diff -u test.ini good.ini && ok || fail
 :> test.ini
 printf '%s\n' '[DEFAULT]' 'name=val' '[section1]' |
 crudini --merge test.ini || fail
-printf '%s\n' '[DEFAULT]' 'name = val' '' '[section1]' > good.ini
+printf '%s\n' '[DEFAULT]' 'name = val' '[section1]' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 :> test.ini
@@ -305,7 +305,7 @@ diff -u test.ini good.ini && ok || fail
 printf '%s\n' 'name=val1' > test.ini
 printf '%s\n' 'name=val2' |
 crudini --merge test.ini new || fail
-printf '%s\n' 'name=val1' '' '' '[new]' 'name = val2' > good.ini
+printf '%s\n' 'name=val1' '' '[new]' 'name = val2' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 printf '%s\n' 'name=val1' > test.ini
@@ -351,7 +351,7 @@ printf '%s\n' '[Section1]' 'name=val2' |
 crudini --merge --existing 2>/dev/null test.ini && fail || ok
 printf '%s\n' '[Section1]' 'name=val2' |
 crudini --merge test.ini || fail
-printf '%s\n' '[section1]' 'name=val1' '' '' '[Section1]' 'name = val2' > good.ini
+printf '%s\n' '[section1]' 'name=val1' '' '[Section1]' 'name = val2' > good.ini
 diff -u test.ini good.ini && ok || fail
 
 # --del -------------------------------------------------
