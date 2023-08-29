@@ -1,0 +1,25 @@
+## Installation
+
+On windows ensure a python interpreter is installed.
+For example installing from https://www.python.org/downloads/
+will put the py launcher and pip in the PATH.
+
+Then ensure the iniparse module is installed by
+running the following from a "cmd" prompt:
+
+```
+pip install iniparse
+```
+
+Then crudini can be invoked by downloading just the crudini.py
+file and running like:
+
+```
+py crudini.py --help
+```
+
+On Linux systems crudini is generally available from your standard
+package manager, and installing will also ensure the iniparse
+dependency is appropriately installed on your system.
+You can also download and run the single crudini.py file directly
+to use latest version.
