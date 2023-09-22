@@ -177,7 +177,6 @@ class LockedFile(FileLock):
 
         self.fp_cmp = None
         self.filename = filename
-        self.operation = operation
 
         FileLock.__init__(self, operation != "--get")
 
@@ -375,7 +374,7 @@ class Crudini():
         param = value = vlist = listsep = verbose = None
 
     locked_file = None
-    section_explicit_default = False
+    section_explicit_default = None
     data = None
     conf = None
     added_default_section = False
@@ -557,6 +556,8 @@ SECTION can be empty ("") or "DEFAULT" in which case,
 params not in a section, i.e. global parameters are operated on.
 If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
 
+Multiple --set|--del|--get operations for a config_file can be specified.
+
 Options:
 
   --existing[=WHAT]  For --set, --del and --merge, fail if item is missing,
@@ -580,6 +581,18 @@ Options:
         )
         sys.exit(exitval)
 
+    def set_operation(self, operation):
+        self.mode = None
+        self.cfgfile = self.section = self.param = self.value = None
+        try:
+            self.mode = operation[0]
+            self.cfgfile = operation[1]
+            self.section = operation[2]
+            self.param = operation[3]
+            self.value = operation[4]
+        except IndexError:
+            pass
+
     def parse_options(self):
 
         # Handle optional arg to long option
@@ -590,28 +603,56 @@ Options:
             elif opt == '--':
                 break
 
+        long_options = [
+            'del',
+            'existing=',
+            'format=',
+            'get',
+            'help',
+            'ini-options=',
+            'inplace',
+            'list',
+            'list-sep=',
+            'merge',
+            'output=',
+            'set',
+            'verbose',
+            'version'
+        ]
+
+        # Group args into options and operations
+        options = []
+        operations = []
+        next_is_option_param = False
+        for i, opt in enumerate(sys.argv[1:]):
+            if next_is_option_param:
+                options.append(opt)
+                next_is_option_param = False
+            elif opt in ('--get', '--set', '--del', '--merge'):
+                operations.append([opt])
+            elif opt == '--':
+                if operations:
+                    operations[-1].extend(sys.argv[i+2:])
+                # else discard as was done before multi operation support
+                break
+            elif opt.startswith('--'):
+                options.append(opt)
+                if '=' not in opt and opt[2:]+'=' in long_options:
+                    next_is_option_param = True
+            else:
+                if operations:
+                    operations[-1].append(opt)
+                else:
+                    error('Unknown operation: %s' % opt)
+                    break
+
         try:
-            long_options = [
-                'del',
-                'existing=',
-                'format=',
-                'get',
-                'help',
-                'ini-options=',
-                'inplace',
-                'list',
-                'list-sep=',
-                'merge',
-                'output=',
-                'set',
-                'verbose',
-                'version'
-            ]
-            opts, args = getopt.getopt(sys.argv[1:], '', long_options)
+            opts, args = getopt.getopt(options, '', long_options)
         except getopt.GetoptError as e:
             error(str(e))
             self.usage(1)
 
+        self.iniopt = ()
         for o, a in opts:
             if o in ('--help',):
                 self.usage(0)
@@ -620,11 +661,6 @@ Options:
                 sys.exit(0)
             elif o in ('--verbose',):
                 self.verbose = True
-            elif o in ('--set', '--del', '--get', '--merge'):
-                if self.mode:
-                    error('One of --set|--del|--get|--merge can be specified')
-                    self.usage(1)
-                self.mode = o
             elif o in ('--format',):
                 self.fmt = a
                 if self.fmt not in ('sh', 'ini', 'lines'):
@@ -650,62 +686,9 @@ Options:
             elif o in ('--output',):
                 self.output = a
 
-        if not self.mode:
+        if not operations:
             error('One of --set|--del|--get|--merge must be specified')
             self.usage(1)
-
-        try:
-            self.cfgfile = args[0]
-            self.section = args[1]
-            self.param = args[2]
-            self.value = args[3]
-        except IndexError:
-            pass
-
-        if not self.output:
-            self.output = self.cfgfile
-
-        if file_is_closed(sys.stdout) \
-           and (self.output == '-' or self.mode == '--get'):
-            error("stdout is closed")
-            sys.exit(1)
-
-        if self.cfgfile is None:
-            self.usage(1)
-        if self.section is None and self.mode in ('--del', '--set'):
-            self.usage(1)
-        if self.param is not None and self.mode in ('--merge',):
-            self.usage(1)
-        if self.value is not None and self.mode not in ('--set',):
-            if not (self.mode == '--del' and self.vlist):
-                error('A value should not be specified with %s' % self.mode)
-                self.usage(1)
-
-        if self.mode == '--merge' and self.fmt == 'sh':
-            # I'm not sure how useful is is to support this.
-            # printenv will already generate a mostly compat ini format.
-            # If you want to also include non exported vars (from `set`),
-            # then there is a format change.
-            error('sh format input is not supported at present')
-            sys.exit(1)
-
-        # Protect against generating non parseable ini files
-        if self.section and ('[' in self.section or ']' in self.section):
-            error("section names should not contain '[' or ']': %s" %
-                  self.section)
-            sys.exit(1)
-        if self.param and self.param.startswith('['):
-            error("param names should not start with '[': %s" % self.param)
-            sys.exit(1)
-
-        if not self.iniopt:
-            self.iniopt = ()
-        # A "param=with=equals = value" line can not be found with --get
-        # so avoid the ambiguity.  Restrict to 'nospace' to allow hack in
-        # https://github.com/pixelb/crudini/issues/33#issuecomment-1151253988
-        if 'nospace' in self.iniopt and self.param and '=' in self.param:
-            error("param names should not contain '=': %s" % self.param)
-            sys.exit(1)
 
         if self.fmt == 'lines':
             self._print = PrintLines()
@@ -718,6 +701,92 @@ Options:
                 self._print = PrintIni()
         else:
             self._print = Print()
+
+        # Validate all operations combinations
+        for o in operations:
+            if self.mode and self.mode != o[0]:
+                mixable = ('--set', '--del')
+                if self.mode not in mixable or o[0] not in mixable:
+                    error("--get|--merge modes can't be mixed"
+                          "with --set|--del")
+                    self.usage(1)
+            elif self.mode == '--merge':
+                error("--merge mode can't be repeated")
+                self.usage(1)
+
+            if self.cfgfile and len(o) > 1 and self.cfgfile != o[1]:
+                error("Can't operate on multiple files")
+                self.usage(1)
+
+            self.set_operation(o)
+
+            if self.cfgfile is None:
+                self.usage(1)
+            if self.section is None and self.mode in ('--del', '--set'):
+                self.usage(1)
+            if self.param is not None and self.mode in ('--merge',):
+                self.usage(1)
+            if self.value is not None and self.mode not in ('--set',):
+                if not (self.mode == '--del' and self.vlist):
+                    error('A value should not be specified with %s'
+                          % self.mode)
+                    self.usage(1)
+
+            # Convert secion '' to 'DEFAULT',
+            # ensuring no conflicting DEFAULT section specs
+            if self.section_explicit_default is None:
+                if self.section == '':
+                    o[2] = self.section = iniparse.DEFAULTSECT
+                    self.section_explicit_default = False
+                elif self.section == iniparse.DEFAULTSECT:
+                    self.section_explicit_default = True
+            elif self.section is not None:
+                if ((self.section == '' and self.section_explicit_default)
+                    or (self.section == iniparse.DEFAULTSECT
+                        and not self.section_explicit_default)):
+                    error("Conflicting %s section specifications" %
+                          iniparse.DEFAULTSECT)
+                    sys.exit(1)
+                elif self.section == '':
+                    o[2] = self.section = iniparse.DEFAULTSECT
+
+            if self.mode == '--merge' and self.fmt == 'sh':
+                # I'm not sure how useful is is to support this.
+                # printenv will already generate a mostly compat ini format.
+                # If you want to also include non exported vars (from `set`),
+                # then there is a format change.
+                error('sh format input is not supported at present')
+                sys.exit(1)
+
+            # Protect against generating non parseable ini files
+            if self.section and ('[' in self.section or ']' in self.section):
+                error("section names should not contain '[' or ']': %s" %
+                      self.section)
+                sys.exit(1)
+            if self.param and self.param.startswith('['):
+                error("param names should not start with '[': %s" % self.param)
+                sys.exit(1)
+
+            # A "param=with=equals = value" line can not be found with --get
+            # so avoid the ambiguity.  Restrict to 'nospace' to allow hack in
+            # https://github.com/pixelb/crudini/issues/33#issuecomment-\
+            # 1151253988
+            if 'nospace' in self.iniopt and self.param and '=' in self.param:
+                error("param names should not contain '=': %s" % self.param)
+                sys.exit(1)
+
+        if self.section_explicit_default is None:
+            self.section_explicit_default = False
+
+        if not self.output:
+            self.output = self.cfgfile
+
+        if file_is_closed(sys.stdout) \
+           and (self.output == '-' or self.mode == '--get'):
+            error("stdout is closed")
+            sys.exit(1)
+
+        return operations
 
     def _has_default_section(self):
         fp = StringIO(self.data)
@@ -997,13 +1066,14 @@ Options:
             sys.excepthook = Crudini.cli_exception
 
         Crudini.init_iniparse_defaultsect()
-        self.parse_options()
+        operations = self.parse_options()
 
-        self.section_explicit_default = False
-        if self.section == '':
-            self.section = iniparse.DEFAULTSECT
-        elif self.section == iniparse.DEFAULTSECT:
-            self.section_explicit_default = True
+        # --set takes precedence to create file etc.
+        if self.mode == '--del':
+            for o in operations:
+                if o[0] == '--set':
+                    self.mode = '--set'
+                    break
 
         if self.mode == '--merge':
             self.mconf = self.parse_file('-', preserve_case=True)
@@ -1030,14 +1100,17 @@ Options:
             ):
                 self.added_default_section = self.madded_default_section
 
-            if self.mode == '--set':
-                self.command_set()
-            elif self.mode == '--merge':
-                self.command_merge()
-            elif self.mode == '--del':
-                self.command_del()
-            elif self.mode == '--get':
-                self.command_get()
+            for o in operations:
+                self.set_operation(o)
+
+                if self.mode == '--set':
+                    self.command_set()
+                elif self.mode == '--merge':
+                    self.command_merge()
+                elif self.mode == '--del':
+                    self.command_del()
+                elif self.mode == '--get':
+                    self.command_get()
 
             if self.mode != '--get':
                 # XXX: Ideally we should just do conf.write(f) here, but to

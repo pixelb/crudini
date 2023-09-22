@@ -11,6 +11,8 @@ SECTION can be empty ("") or "DEFAULT" in which case,
 params not in a section, i.e. global parameters are operated on.
 If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
 
+Multiple --set|--del|--get operations for a config_file can be specified.
+
 ```
 ## Options:
 ```
@@ -46,6 +48,11 @@ If 'DEFAULT' is used with --set, an explicit [DEFAULT] section is added.
 
 # Update an existing var
   crudini --set --existing config_file section parameter value
+
+# Add/Update/Delete multiple variables atomically
+  crudini --set config_file section parameter1 value \
+          --set config_file section parameter2 value \
+          --del config_file section parameter3
 
 # Add/Append a value to a comma separated list
 # Note any whitespace around commas is ignored

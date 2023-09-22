@@ -563,3 +563,64 @@ diff -u <(crudini --output=- --ini-options=nospace \
 diff -u <(crudini --output=- --ini-options=nospace \
           --set nospace-in.ini '' new val) \
         nospace-out.ini && ok || fail
+
+# Test multi operation
+# - Multiple set
+printf '%s\n' '' 'param1=?' 'param2=?' > file.conf
+printf '%s\n' '' 'param1=1' 'param2=2' > good.conf
+crudini --set file.conf '' param1 1 \
+        --set file.conf '' param2 2 || fail
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
+
+# - Mixed set / del
+printf '%s\n' '' 'param1=?' 'param2=?' > file.conf
+printf '%s\n' ''            'param2=2' > good.conf
+crudini --del file.conf '' param1   \
+        --set file.conf '' param2 2 || fail
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
+
+# - Mixed set / del with non existing file
+printf '%s\n' 'param1 = ' > good.conf
+crudini --set file.conf '' param1   \
+        --del file.conf '' param3 || fail
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
+
+# - Mixed set / get not allowed
+crudini --set file.conf '' param1   \
+        --get file.conf '' param1  2>/dev/null && fail || ok
+
+# - Multiple files not allowed
+crudini --set file.conf '' param1   \
+        --set file2.conf '' param1 2>/dev/null && fail || ok
+
+# - Multiple --merge not allowed
+crudini --merge file.conf --merge file.conf < /dev/null 2>/dev/null \
+  && fail || ok
+rm -f file.conf
+
+# - Interspersed options supported
+printf '%s\n' 'param1=1' 'param2=2' > good.conf
+crudini --set file.conf '' param1 1  \
+        --ini-options nospace \
+        --set file.conf '' param2 2 || fail
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
+
+# - Multiple files not allowed
+printf '%s\n' '[section]' > file1.conf
+printf '%s\n' '[section]' > file2.conf
+crudini --del file1.conf section --del file2.conf section 2>/dev/null \
+  && fail || ok
+rm -f file1.conf file2.conf
+
+# - Conflicting DEFAULT section specs not allowed
+crudini --set file.conf '' param1 value \
+        --set file.conf DEFAULT param2 value 2>/dev/null \
+  && fail || ok
+crudini --set file.conf DEFAULT param1 value \
+        --set file.conf '' param2 value 2>/dev/null \
+  && fail || ok
+rm -f file.conf

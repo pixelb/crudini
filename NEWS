@@ -1,5 +1,12 @@
 crudini NEWS                                    -*- outline -*-
 
+* Noteworthy changes in release 0.9.5 (????-??-??)
+
+** Improvements
+
+  Support for multiple --set and --del, or --get operations,
+  allowing for more efficient and atomic updates to multiple parameters.
+
 * Noteworthy changes in release 0.9.4 (2022-12-23)
 
 ** Bug fixes
