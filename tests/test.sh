@@ -573,6 +573,14 @@ crudini --set file.conf '' param1 1 \
 diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
 
+# - Multiple get
+printf '%s\n' 'param1=1' 'param2=2' > file.conf
+crudini --get file.conf '' param1 \
+        --get file.conf '' param2 \
+        --format=sh > out.conf || fail
+diff -u out.conf file.conf && ok || fail
+rm file.conf out.conf
+
 # - Mixed set / del
 printf '%s\n' '' 'param1=?' 'param2=?' > file.conf
 printf '%s\n' ''            'param2=2' > good.conf
@@ -593,8 +601,11 @@ crudini --set file.conf '' param1   \
         --get file.conf '' param1  2>/dev/null && fail || ok
 
 # - Multiple files not allowed
-crudini --set file.conf '' param1   \
-        --set file2.conf '' param1 2>/dev/null && fail || ok
+printf '%s\n' '[section]' > file1.conf
+printf '%s\n' '[section]' > file2.conf
+crudini --del file1.conf section --del file2.conf section 2>/dev/null \
+  && fail || ok
+rm -f file1.conf file2.conf
 
 # - Multiple --merge not allowed
 crudini --merge file.conf --merge file.conf < /dev/null 2>/dev/null \
@@ -608,13 +619,6 @@ crudini --set file.conf '' param1 1  \
         --set file.conf '' param2 2 || fail
 diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
-
-# - Multiple files not allowed
-printf '%s\n' '[section]' > file1.conf
-printf '%s\n' '[section]' > file2.conf
-crudini --del file1.conf section --del file2.conf section 2>/dev/null \
-  && fail || ok
-rm -f file1.conf file2.conf
 
 # - Conflicting DEFAULT section specs not allowed
 crudini --set file.conf '' param1 value \
