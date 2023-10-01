@@ -54,6 +54,9 @@ Multiple --set|--del|--get operations for a config_file can be specified.
           --set config_file section parameter2 value \
           --del config_file section parameter3
 
+# Get multiple items from stdin
+  env | crudini --get - '' USER --get - '' SHELL
+
 # Add/Append a value to a comma separated list
 # Note any whitespace around commas is ignored
   crudini --set --list config_file section parameter a_value

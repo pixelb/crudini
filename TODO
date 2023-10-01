@@ -24,8 +24,6 @@ I.E. split on a combo of [\n,]
 possibly support --lower to output normalised case for
 --get and --sort
 
-support python3
-
 Have a look at cliff output formatters? csv and shell at least:
 http://blog.oddbit.com/2013/11/22/a-unified-cli-for-op
 
