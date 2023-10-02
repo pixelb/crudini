@@ -7,6 +7,10 @@ crudini NEWS                                    -*- outline -*-
   Support for multiple --set and --del, or --get operations,
   allowing for more efficient and atomic updates to multiple parameters.
 
+  Support indented ini files with --ini-options=ignoreindent.
+  Indentation is ignored (and maintained) in the ini file.
+
+
 * Noteworthy changes in release 0.9.4 (2022-12-23)
 
 ** Bug fixes

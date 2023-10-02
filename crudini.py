@@ -69,10 +69,17 @@ class CrudiniInputFilter():
         self.fp = fp
         self.iniopt = iniopt
         self.crudini_no_arg = False
+        self.indented = False
+        self.last_section = 'DEFAULT'
+        self.section_indents = {}
         self.windows_eol = None
         # Note [ \t] used rather than \s to avoid adjusting \r\n when no value
         # Unicode spacing around the delimiter would be very unusual anyway
         self.delimiter_spacing = re.compile(r'(.*?)[ \t]*([:=])[ \t]*(.*)')
+        self.leading_whitespace = re.compile(r'([ \t]+)(.+)')
+        self.replace_leading = re.compile(r'^(.+) ;crudini_indent>(.*)<$',
+                                          flags=re.MULTILINE)
+        self.section_match = re.compile(r'[ \t]*\[([^]]+)\].*')
 
     def readline(self):
         line = self.fp.readline()
@@ -87,13 +94,26 @@ class CrudiniInputFilter():
             else:
                 self.windows_eol = os.name == 'nt'
 
-        if line and line[0] not in '[ \t#;\n\r':
+        if line.strip() and line[0] not in '#;%':
 
-            if '=' not in line and ':' not in line:
+            if 'ignoreindent' in self.iniopt:
+                section = line.lstrip()[0] == '['
+            else:
+                section = line[0] == '['
+            if section:
+                section_name = self.section_match.sub(r'\1', line.rstrip())
+                if not section_name:
+                    return line
+                self.last_section = section_name
+
+            if line[0] in ' \t' and 'ignoreindent' not in self.iniopt:
+                return line
+
+            if not section and '=' not in line and ':' not in line:
                 self.crudini_no_arg = True
                 line = line.rstrip() + ' = crudini_no_arg\n'
 
-            if 'nospace' in self.iniopt:
+            if not section and 'nospace' in self.iniopt:
                 # Convert _all_ existing params. New params are handled in
                 # the iniparse specialization in CrudiniConfigParser()
 
@@ -103,6 +123,17 @@ class CrudiniInputFilter():
                 # But if need to remove the spacing, then should for all params
 
                 line = self.delimiter_spacing.sub(r'\1\2\3', line)
+
+            if line[0] in ' \t':
+                self.indented = True
+
+                # Set default indent for section to last indent
+                leading_ws = self.leading_whitespace.sub(r'\1', line.rstrip())
+                self.section_indents[self.last_section] = leading_ws
+
+                # match leading spaces and put in trailing ;crudini_indent=...
+                reorder_ws = r'\2 ;crudini_indent>\1<'
+                line = self.leading_whitespace.sub(reorder_ws, line)
 
         return line
 
@@ -567,6 +598,7 @@ Options:
                        Formats are 'sh','ini','lines'
   --ini-options=OPT  Set options for handling ini files.  Options are:
                        'nospace': use format name=value not name = value
+                       'ignoreindent': ignore leading whitespace
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.
@@ -669,7 +701,7 @@ Options:
             elif o in ('--ini-options',):
                 self.iniopt = a.split(',')
                 for opt in self.iniopt:
-                    if opt not in ('nospace'):
+                    if opt not in ('', 'nospace', 'ignoreindent'):
                         error('--ini-options not recognized: %s' % opt)
                         self.usage(1)
             elif o in ('--existing',):
@@ -835,6 +867,9 @@ Options:
                                          'nospace' not in self.iniopt))
             conf.readfp(fp)
             self.crudini_no_arg = fp.crudini_no_arg
+            self.indented = fp.indented
+            self.replace_leading = fp.replace_leading
+            self.section_indents = fp.section_indents
             self.windows_eol = fp.windows_eol
             return conf
         except EnvironmentError as e:
@@ -884,6 +919,22 @@ Options:
 
     def set_name_value(self, section, param, value):
         curr_val = None
+        ignore_indent = 'ignoreindent' in self.iniopt
+
+        # Since indents stripped on read, ensure no ambiguities
+        # Also allow to set default indent on params with explicit indent
+        # We don't support this for sections as in all cases they
+        # can have [  leading spaces] in their names. TODO: Perhaps should
+        # support specifying '  [spaces before brackets]' for sections?
+        if ignore_indent and param:
+            stripped_param = param.lstrip()
+            current_indent = self.section_indents.get(section or 'DEFAULT')
+            if not current_indent:
+                leading_ws = param[:len(param)-len(stripped_param)]
+                if leading_ws:
+                    self.indented = True
+                    self.section_indents[section] = leading_ws
+            param = stripped_param
 
         if self.update in ('param', 'section'):
             if param is None:
@@ -937,6 +988,11 @@ Options:
                 else:
                     # Otherwise use a delimeter
                     value = ''
+
+            # Add a default indent through an inline comment, to later replace
+            section_indent = self.section_indents.get(section)
+            if curr_val is None and ignore_indent and section_indent:
+                value += ' ;crudini_indent>%s<' % section_indent
 
             if self.vlist:
                 value = self.update_list(
@@ -1154,6 +1210,9 @@ Options:
                     # so reset all to windows format
                     str_data = str_data.replace('\r\n', '\n')
                     str_data = str_data.replace('\n', '\r\n')
+
+                if self.indented:
+                    str_data = self.replace_leading.sub(r'\2\1', str_data)
 
                 if self.crudini_no_arg:
                     spacing = '' if 'nospace' in self.iniopt else ' '

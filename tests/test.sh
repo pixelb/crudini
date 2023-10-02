@@ -628,3 +628,42 @@ crudini --set file.conf DEFAULT param1 value \
         --set file.conf '' param2 value 2>/dev/null \
   && fail || ok
 rm -f file.conf
+
+# Test indentation support
+# - --get indented
+printf '  %s\n' '[section]' 'param1=1' > file.conf
+crudini --ini-options=ignoreindent \
+        --get file.conf >/dev/null && ok || fail
+
+# - --set maintaining indented
+printf '  %s\n' '[section]' 'param1=a' > good.conf
+crudini --ini-options=ignoreindent \
+        --set file.conf section param1 a && ok || fail
+diff -u good.conf file.conf && ok || fail
+
+# - --set copying indentation
+printf '  %s\n' '[section]' 'param1=a' 'param2=b' > good.conf
+crudini --ini-options=ignoreindent,nospace \
+        --set file.conf section param2 b && ok || fail
+diff -u good.conf file.conf && ok || fail
+
+# - --set new indentation for param (on new section)
+printf '%s\n' '[section]' '  param1 = a' > good.conf
+rm -f file.conf
+crudini --ini-options=ignoreindent \
+        --set file.conf section '  param1' a && ok || fail
+diff -u good.conf file.conf && ok || fail
+
+# - --set copying indentation from param
+printf '%s\n' '[section]' '  param1 = a' '  param2 = b' > good.conf
+crudini --ini-options=ignoreindent \
+        --set file.conf section 'param2' b && ok || fail
+diff -u good.conf file.conf && ok || fail
+
+# - --set new indentation for param (on new default section)
+printf '%s\n' '  param1 = a' > good.conf
+rm -f file.conf
+crudini --ini-options=ignoreindent \
+        --set file.conf '' '  param1' a && ok || fail
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
