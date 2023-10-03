@@ -216,6 +216,13 @@ diff -u test.ini section1.ini && ok || fail
 # get section1 in sh format
 crudini --format=sh --get example.ini section1 > test.ini
 diff -u test.ini section1.sh && ok || fail
+# get all in sh format
+crudini --format=sh --get section1.ini > test.ini
+diff -u test.ini sections.sh && ok || fail
+# get default in sh format
+crudini --format=sh --get example.ini '' > test.ini
+printf '%s\n' 'global=supported' > good.ini
+diff -u test.ini good.ini && ok || fail
 
 # empty DEFAULT is not printed
 printf '%s\n' '[DEFAULT]' '#comment' '[section1]' > test.ini

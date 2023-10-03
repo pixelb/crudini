@@ -10,6 +10,9 @@ crudini NEWS                                    -*- outline -*-
   Support indented ini files with --ini-options=ignoreindent.
   Indentation is ignored (and maintained) in the ini file.
 
+  --format=sh will now attempt to output a whole ini file in sh format.
+  Previously it would have only printed the section names.
+
 
 * Noteworthy changes in release 0.9.4 (2022-12-23)
 

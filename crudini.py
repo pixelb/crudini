@@ -392,12 +392,16 @@ class PrintSh(Print):
         return True
 
     def name_value(self, name, value, section=None):
-        if not PrintSh._valid_sh_identifier(name):
-            error('Invalid sh identifier: %s' % name)
+        if section and name:
+            identifier = "%s_%s" % (section, name)
+        else:
+            identifier = name
+        if not PrintSh._valid_sh_identifier(identifier):
+            error('Invalid sh identifier "%s"' % identifier)
             sys.exit(1)
         if value == 'crudini_no_arg':
             value = ''
-        sys.stdout.write("%s=%s\n" % (name, pipes.quote(value)))
+        sys.stdout.write("%s=%s\n" % (identifier, pipes.quote(value)))
 
 
 class Crudini():
@@ -1061,7 +1065,7 @@ Options:
     def command_get(self):
         """Output a section/parameter"""
 
-        if self.fmt != 'lines':
+        if self.fmt != 'lines' and self.fmt != 'sh':
             if self.section is None:
                 if self.conf.defaults():
                     self._print.section_header(iniparse.DEFAULTSECT)
@@ -1099,9 +1103,16 @@ Options:
                 sections = (self.section,)
             if self.param is not None:
                 val = self.conf.get(self.section, self.param)
-                self._print.name_value(self.param, val, self.section)
+                print_section = self.section
+                if self.fmt == 'sh':
+                    print_section = None
+                self._print.name_value(self.param, val, print_section)
             else:
                 for section in sections:
+                    print_section = section
+                    if self.fmt == 'sh':
+                        if self.section or section == iniparse.DEFAULTSECT:
+                            print_section = None
                     if section == iniparse.DEFAULTSECT:
                         defaults_to_strip = {}
                     else:
@@ -1112,10 +1123,10 @@ Options:
                         # if matching value also in default (global) section.
                         if defaults_to_strip.get(item[0]) != item[1]:
                             val = item[1]
-                            self._print.name_value(item[0], val, section)
+                            self._print.name_value(item[0], val, print_section)
                             items = True
-                    if not items:
-                        self._print.name_value(None, None, section)
+                    if not items and self.fmt != 'sh':
+                        self._print.name_value(None, None, print_section)
 
     def run(self):
         if not file_is_closed(sys.stdin) and sys.stdin.isatty():
