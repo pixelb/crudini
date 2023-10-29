@@ -804,11 +804,13 @@ Options:
                 sys.exit(1)
 
             # A "param=with=equals = value" line can not be found with --get
-            # so avoid the ambiguity.  Restrict to 'nospace' to allow hack in
-            # https://github.com/pixelb/crudini/issues/33#issuecomment-\
+            # so avoid the ambiguity.  Note this precludes the "nospace" hack
+            # in https://github.com/pixelb/crudini/issues/33#issuecomment-\
             # 1151253988
-            if 'nospace' in self.iniopt and self.param and '=' in self.param:
+            if self.param and '=' in self.param:
                 error("param names should not contain '=': %s" % self.param)
+                if 'nospace' not in self.iniopt:
+                    error("Use --ini-options=nospace if you want that format")
                 sys.exit(1)
 
         if self.section_explicit_default is None:
