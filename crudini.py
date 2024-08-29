@@ -32,16 +32,20 @@ else:
     import ConfigParser as configparser
 
 
+user_encoding = 'utf-8'  # user specified items
+file_encoding = 'utf-8'  # encoding of ini file contents
+
+
 # Python 2/3 wrapper to convert strings to unicode
 try:  # Python 2
     unicode
 
-    def s2u(s, e='utf-8'):
+    def s2u(s, e=user_encoding):
         return unicode(s, e)
     # Also add conversion wrapper for print()
-    sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
+    sys.stdout = codecs.getwriter(user_encoding)(sys.stdout)
 except NameError:  # Python 3
-    def s2u(s, e='utf-8'):
+    def s2u(s, e=user_encoding):
         return str(s)
     unicode = str
 
@@ -487,7 +491,7 @@ class Crudini():
                 st = os.stat(name)
                 os.fchown(f, st.st_uid, st.st_gid)
 
-            os.write(f, bytearray(data, 'utf-8'))
+            os.write(f, bytearray(data, file_encoding))
 
             # We assume the existing file is persisted,
             # so sync here to ensure new data is persisted
@@ -534,7 +538,7 @@ class Crudini():
         """
 
         with open(name, 'wb') as f:
-            f.write(bytearray(data, 'utf-8'))
+            f.write(bytearray(data, file_encoding))
             f.flush()
             os.fsync(f.fileno())
 
@@ -854,7 +858,7 @@ Options:
 
     def _chksum(self, data):
         h = hashlib.sha256()
-        h.update(bytearray(data, 'utf-8'))
+        h.update(bytearray(data, file_encoding))
         return h.digest()
 
     def _parse_file(self, filename, add_default=False, preserve_case=False):
@@ -867,7 +871,7 @@ Options:
                     ifp = os.fdopen(sys.stdin.fileno(), 'rb')
                 else:
                     ifp = self.locked_file.fp
-                self.data = ifp.read().decode('utf-8')
+                self.data = ifp.read().decode(file_encoding)
                 if self.mode != '--get':
                     # compare checksums to flag any changes
                     # (even spacing or case adjustments) with --verbose,
