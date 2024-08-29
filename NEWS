@@ -1,6 +1,12 @@
 crudini NEWS                                    -*- outline -*-
 
-* Noteworthy changes in release 0.9.5 (????-??-??)
+* Noteworthy changes in release 0.9.6 (????-??-??)
+
+  Support BOM correctly.  Previously we would have stripped any
+  Byte Order Mark, and incorrectly matched items on the first line.
+
+
+* Noteworthy changes in release 0.9.5 (2023-10-04)
 
 ** Improvements
 
