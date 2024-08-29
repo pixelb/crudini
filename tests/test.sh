@@ -186,6 +186,9 @@ diff -u test.ini good.ini && ok || fail
 # basic get
 test "$(crudini --get example.ini section1 cAps)" = 'not significant' && ok || fail
 
+# unicode get
+test "$(crudini --get example.ini non-sh-compat útf8name)" = 'val' && ok || fail
+
 # get sections
 crudini --get example.ini > test.ini
 printf '%s\n' DEFAULT section1 'empty section' non-sh-compat list > good.ini

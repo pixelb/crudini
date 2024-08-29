@@ -16,6 +16,7 @@ import errno
 import getopt
 import hashlib
 import iniparse
+import io
 import os
 import re
 import shutil
@@ -24,12 +25,25 @@ import tempfile
 
 if sys.version_info[0] >= 3:
     import shlex as pipes
-    from io import StringIO
     import configparser
 else:
+    import codecs
     import pipes
-    from cStringIO import StringIO
     import ConfigParser as configparser
+
+
+# Python 2/3 wrapper to convert strings to unicode
+try:  # Python 2
+    unicode
+
+    def s2u(s, e='utf-8'):
+        return unicode(s, e)
+    # Also add conversion wrapper for print()
+    sys.stdout = codecs.getwriter("utf-8")(sys.stdout)
+except NameError:  # Python 3
+    def s2u(s, e='utf-8'):
+        return str(s)
+    unicode = str
 
 
 def error(message=None):
@@ -214,7 +228,6 @@ class LockedFile(FileLock):
         atexit.register(self.delete)
 
         open_mode = os.O_RDONLY
-        open_args = {}
         if operation != "--get":
             # We're only reading here, but we check now for write
             # permissions we'll need in --inplace case to avoid
@@ -225,13 +238,11 @@ class LockedFile(FileLock):
             if create and operation != '--del':
                 open_mode += os.O_CREAT
 
-            # Don't convert line endings, so we maintain CRLF in files
-            if sys.version_info[0] >= 3:
-                open_args = {'newline': ''}
-
         try:
-            self.fp = os.fdopen(os.open(self.filename, open_mode, 0o666),
-                                **open_args)
+            # Note we open in binary mode to avoid newline processing,
+            # and also to give more control over the decoding process later.
+            # This avoids platform encoding inconsistencies as per PEP 597.
+            self.fp = os.fdopen(os.open(self.filename, open_mode, 0o666), 'rb')
             if inplace:
                 # In general readers (--get) are protected by file_replace(),
                 # but using read lock here gives AC of the ACID properties
@@ -243,7 +254,7 @@ class LockedFile(FileLock):
                 while True:
                     self.lock()
                     fpnew = os.fdopen(os.open(self.filename, open_mode, 0o666),
-                                      **open_args)
+                                      'rb')
                     if (os.name == 'nt' or
                        os.path.sameopenfile(self.fp.fileno(), fpnew.fileno())):
                         # Note we don't fpnew.close() here as that would break
@@ -262,7 +273,7 @@ class LockedFile(FileLock):
             # We don't exit early here so that --verbose is also handled.
             if create and operation == '--del' \
                and e.errno in (errno.ENOTDIR, errno.ENOENT):
-                self.fp = StringIO('')
+                self.fp = io.BytesIO(b'')
             else:
                 error(str(e))
                 sys.exit(1)
@@ -289,7 +300,7 @@ class CrudiniConfigParser(iniparse.RawConfigParser):
         # We ignore lines starting with '%' which mercurial uses to include
         iniparse.change_comment_syntax('%;#', allow_rem=False)
         if preserve_case:
-            self.optionxform = str
+            self.optionxform = lambda x: x
         # Adjust iniparse separator to default to no space around equals
         # Note this does NOT convert existing params with spaces,
         # that's done in CrudiniInputFilter.readline().
@@ -465,10 +476,8 @@ class Crudini():
                 st = os.stat(name)
                 os.fchown(f, st.st_uid, st.st_gid)
 
-            if sys.version_info[0] >= 3:
-                os.write(f, bytearray(data, 'utf-8'))
-            else:
-                os.write(f, data)
+            os.write(f, bytearray(data, 'utf-8'))
+
             # We assume the existing file is persisted,
             # so sync here to ensure new data is persisted
             # before referencing it.  Otherwise the metadata could
@@ -512,13 +521,9 @@ class Crudini():
          - Less Durable as existing data truncated before I/O completes.
          - Requires write access to file rather than write access to dir.
         """
-        # Don't convert line endings, so we maintain CRLF in files
-        open_args = {}
-        if sys.version_info[0] >= 3:
-            open_args = {'newline': ''}
 
-        with open(name, 'w', **open_args) as f:
-            f.write(data)
+        with open(name, 'wb') as f:
+            f.write(bytearray(data, 'utf-8'))
             f.flush()
             os.fsync(f.fileno())
 
@@ -623,9 +628,12 @@ Options:
         try:
             self.mode = operation[0]
             self.cfgfile = operation[1]
-            self.section = operation[2]
-            self.param = operation[3]
-            self.value = operation[4]
+            # Convert the following to unicode as
+            # we process in unicode explicitly in python2.
+            # Not needed on python3 where all strings are unicode.
+            self.section = s2u(operation[2])
+            self.param = s2u(operation[3])
+            self.value = s2u(operation[4])
         except IndexError:
             pass
 
@@ -827,7 +835,7 @@ Options:
         return operations
 
     def _has_default_section(self):
-        fp = StringIO(self.data)
+        fp = io.StringIO(self.data)
         for line in fp:
             if line.startswith('[%s]' % iniparse.DEFAULTSECT):
                 return True
@@ -835,10 +843,7 @@ Options:
 
     def _chksum(self, data):
         h = hashlib.sha256()
-        if sys.version_info[0] >= 3:
-            h.update(bytearray(data, 'utf-8'))
-        else:
-            h.update(data)
+        h.update(bytearray(data, 'utf-8'))
         return h.digest()
 
     def _parse_file(self, filename, add_default=False, preserve_case=False):
@@ -848,9 +853,10 @@ Options:
                 # Doing it here will avoid rereads on reparse and support
                 # correct parsing of stdin
                 if filename == '-':
-                    self.data = sys.stdin.read()
+                    ifp = os.fdopen(sys.stdin.fileno(), 'rb')
                 else:
-                    self.data = self.locked_file.fp.read()
+                    ifp = self.locked_file.fp
+                self.data = ifp.read().decode('utf-8')
                 if self.mode != '--get':
                     # compare checksums to flag any changes
                     # (even spacing or case adjustments) with --verbose,
@@ -862,7 +868,8 @@ Options:
                 else:
                     self.newline_at_start = False
 
-            fp = StringIO(self.data)
+            # newline='' =-> don't convert line endings
+            fp = io.StringIO(self.data, newline='')
             if add_default:
                 fp = AddDefaultSection(fp, self.iniopt)
             else:
@@ -1184,7 +1191,11 @@ Options:
             if self.mode != '--get':
                 # XXX: Ideally we should just do conf.write(f) here, but to
                 # avoid iniparse issues, we massage the data a little here
-                str_data = str(self.conf.data)
+                if sys.version_info[0] >= 3:
+                    str_data = str(self.conf.data)
+                else:
+                    # XXX: Can't use uc() here as can't specify encoding
+                    str_data = unicode(self.conf.data)
                 if len(str_data) and str_data[-1] != '\n':
                     str_data += '\n'
 
