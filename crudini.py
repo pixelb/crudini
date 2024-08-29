@@ -87,6 +87,7 @@ class CrudiniInputFilter():
         self.last_section = 'DEFAULT'
         self.section_indents = {}
         self.windows_eol = None
+        self.bom = None
         # Note [ \t] used rather than \s to avoid adjusting \r\n when no value
         # Unicode spacing around the delimiter would be very unusual anyway
         self.delimiter_spacing = re.compile(r'(.*?)[ \t]*([:=])[ \t]*(.*)')
@@ -97,6 +98,16 @@ class CrudiniInputFilter():
 
     def readline(self):
         line = self.fp.readline()
+
+        # Strip BOM. iniparse tracks it but simpler for us to replace later
+        # as we're munging the data in various ways.
+        if self.bom is None:
+            if line and line[0] == u'\ufeff':
+                line = line[1:]
+                self.bom = True
+            else:
+                self.bom = False
+
         # XXX: This doesn't handle ;inline comments.
         # Really should be done within iniparse.
 
@@ -162,7 +173,7 @@ class AddDefaultSection(CrudiniInputFilter):
     def readline(self):
         if self.first:
             self.first = False
-            return '[%s]' % iniparse.DEFAULTSECT
+            return s2u('[%s]' % iniparse.DEFAULTSECT)
         else:
             return CrudiniInputFilter.readline(self)
 
@@ -884,6 +895,7 @@ Options:
             self.replace_leading = fp.replace_leading
             self.section_indents = fp.section_indents
             self.windows_eol = fp.windows_eol
+            self.bom = fp.bom
             return conf
         except EnvironmentError as e:
             error(str(e))
@@ -1242,6 +1254,9 @@ Options:
                     spacing = '' if 'nospace' in self.iniopt else ' '
                     str_data = str_data.replace('%s=%scrudini_no_arg' %
                                                 (spacing, spacing), '')
+
+                if self.bom:
+                    str_data = u'\ufeff%s' % str_data
 
                 changed = self.chksum != self._chksum(str_data)
 

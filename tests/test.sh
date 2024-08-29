@@ -54,25 +54,27 @@ crudini --set test.ini nonDEFAULT name val
 printf '%s\n' '[nonDEFAULT]' 'name = val' > good.ini
 diff -u test.ini good.ini && ok || fail
 
-printf '%s\n' 'global=val' > test.ini
-crudini --set test.ini '' global valnew
-printf '%s\n' 'global=valnew' > good.ini
-diff -u test.ini good.ini && ok || fail
+for bom in '' $'\xef\xbb\xbf'; do
+  printf '%s%s\n' "$bom" 'global=val' > test.ini
+  crudini --set test.ini '' global valnew
+  printf '%s%s\n' "$bom" 'global=valnew' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-printf '%s\n' 'global=val' > test.ini
-crudini --set test.ini DEFAULT global valnew
-printf '%s\n' '[DEFAULT]' 'global=valnew' > good.ini
-diff -u test.ini good.ini && ok || fail
+  printf '%s%s\n' "$bom" 'global=val' > test.ini
+  crudini --set test.ini DEFAULT global valnew
+  printf '%s%s\n' "$bom" '[DEFAULT]' 'global=valnew' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-printf '%s\n' '[DEFAULT]' 'global=val' > test.ini
-crudini --set test.ini DEFAULT global valnew
-printf '%s\n' '[DEFAULT]' 'global=valnew' > good.ini
-diff -u test.ini good.ini && ok || fail
+  printf '%s%s\n' "$bom" '[DEFAULT]' 'global=val' > test.ini
+  crudini --set test.ini DEFAULT global valnew
+  printf '%s%s\n' "$bom" '[DEFAULT]' 'global=valnew' > good.ini
+  diff -u test.ini good.ini && ok || fail
 
-printf '%s\n' 'global=val' '' '[nonDEFAULT]' 'name=val' > test.ini
-crudini --set test.ini '' global valnew
-printf '%s\n' 'global=valnew' '' '[nonDEFAULT]' 'name=val' > good.ini
-diff -u test.ini good.ini && ok || fail
+  printf '%s%s\n' "$bom" 'global=val' '' '[nonDEFAULT]' 'name=val' > test.ini
+  crudini --set test.ini '' global valnew
+  printf '%s%s\n' "$bom" 'global=valnew' '' '[nonDEFAULT]' 'name=val' > good.ini
+  diff -u test.ini good.ini && ok || fail
+done
 
 # do these --sets which test [DEFAULT] handling also with --inplace
 for mode in '' '--inplace'; do
