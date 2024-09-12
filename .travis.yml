@@ -1,0 +1,44 @@
+language: python
+dist: xenial
+cache: pip
+python:
+  - "2.7"
+  - "pypy2.7-6.0"
+addons:
+  apt:
+    packages:
+      - help2man
+install:
+  - python -m pip install --upgrade pip
+  - pip install iniparse
+  - pip install coveralls
+script:
+  - if [ "$TRAVIS_OS_NAME" != "windows" ]; then make; fi
+  - if [ "$TRAVIS_OS_NAME" != "windows" ]; then make dist; fi
+  - cat example.ini
+  - coverage run ./crudini --help
+  - coverage run ./crudini --version
+  - coverage run ./crudini --get example.ini '' global
+  - coverage run ./crudini --get example.ini section1 dup1
+  - coverage run ./crudini --get example.ini section1 nospace
+  - coverage run ./crudini --get example.ini section1 multiline
+  - coverage run ./crudini --get example.ini section1 comment_after1
+  - coverage run ./crudini --get example.ini section1 double_quotes
+  - coverage run ./crudini --get example.ini section1 python_interpolate
+  - coverage run ./crudini --get example.ini section1
+  - coverage run ./crudini --set example.ini section1 nospace 123
+  - coverage run ./crudini --del example.ini section1 comment_after2
+  - coverage run ./crudini --del example.ini empty section
+  - cat example.ini
+after_script:
+  - coveralls
+matrix:
+  fast_finish: true
+  allow_failures:
+    - os: windows
+  include:
+    - os: windows
+      language: shell
+      before_install:
+        - choco install python2
+      env: PATH="/c/Python27:/c/Python27/Scripts:$PATH"
