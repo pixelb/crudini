@@ -439,6 +439,7 @@ class Crudini():
     data = None
     conf = None
     added_default_section = False
+    removed_section = False
     ini_section_blanks = []
     _print = None
 
@@ -1073,9 +1074,11 @@ Options:
                 for name in self.conf.defaults():
                     self.conf.remove_option(iniparse.DEFAULTSECT, name)
             else:
-                if not self.conf.remove_section(self.section) \
-                   and self.update in ('param', 'section'):
-                    raise configparser.NoSectionError(self.section)
+                if not self.conf.remove_section(self.section):
+                    if self.update in ('param', 'section'):
+                        raise configparser.NoSectionError(self.section)
+                else:
+                    self.removed_section = True
         elif self.value is None:
             try:
                 if not self.conf.remove_option(self.section, self.param) \
@@ -1205,6 +1208,9 @@ Options:
                     self.command_get()
 
             if self.mode != '--get':
+                if self.removed_section:
+                    iniparse.tidy(self.conf)
+
                 # XXX: Ideally we should just do conf.write(f) here, but to
                 # avoid iniparse issues, we massage the data a little here
                 if sys.version_info[0] >= 3:
@@ -1240,10 +1246,12 @@ Options:
                         str_data = str_data.replace(default_sect, '', 1)
 
                 # Remove extraneous blanks added by iniparse.
-                # Note iniparse also has a tidy() function to do globally
-                for section in self.ini_section_blanks:
-                    section_s = '\n[%s]\n' % section
-                    str_data = str_data.replace(section_s, section_s[1:], 1)
+                # Note iniparse also has a tidy() function to do globally,
+                # and this is called in the case we've removed a section.
+                if not self.removed_section:
+                    for section in self.ini_section_blanks:
+                        section_ = '\n[%s]\n' % section
+                        str_data = str_data.replace(section_, section_[1:], 1)
 
                 if self.windows_eol:
                     # iniparse uses '\n' for new/updated items

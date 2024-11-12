@@ -679,3 +679,10 @@ crudini --ini-options=ignoreindent \
         --set file.conf '' '  param1' a && ok || fail
 diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
+
+# Test removal of extraneous empty lines
+printf '\n[%s]\n' 1 2 > good.conf
+cp good.conf file.conf
+for i in 1 2; do crudini --del file.conf $i; crudini --set file.conf $i; done
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
