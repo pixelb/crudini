@@ -25,6 +25,8 @@ Multiple --set|--del|--get operations for a config_file can be specified.
   --ini-options=OPT  Set options for handling ini files.  Options are:
                        'nospace': use format name=value not name = value
                        'ignoreindent': ignore leading whitespace
+                       'tidy': remove extraneous empty lines in file
+                       'notidy': disable auto tidy enabled with --del section
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.

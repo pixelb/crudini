@@ -7,6 +7,11 @@ crudini NEWS                                    -*- outline -*-
 
   Extraneous blank lines are avoided when deleting a section.
   Previously blank lines preceeding a [section] were not removed.
+  Note this will remove empty lines in the whole file, which can
+  be avoided with --ini-options=notidy
+
+  Support automatically removing extraneous blank lines in the whole file
+  with --ini-options=tidy.
 
 
 * Noteworthy changes in release 0.9.5 (2023-10-04)

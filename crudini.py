@@ -624,6 +624,8 @@ Options:
   --ini-options=OPT  Set options for handling ini files.  Options are:
                        'nospace': use format name=value not name = value
                        'ignoreindent': ignore leading whitespace
+                       'tidy': remove extraneous empty lines in file
+                       'notidy': disable auto tidy enabled with --del section
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.
@@ -729,9 +731,13 @@ Options:
             elif o in ('--ini-options',):
                 self.iniopt = a.split(',')
                 for opt in self.iniopt:
-                    if opt not in ('', 'nospace', 'ignoreindent'):
+                    if opt not in ('', 'nospace', 'ignoreindent',
+                                   'tidy', 'notidy'):
                         error('--ini-options not recognized: %s' % opt)
                         self.usage(1)
+                if 'tidy' in self.iniopt and 'notidy' in self.iniopt:
+                    error('--ini-options=tidy,notidy are mutually exclusive')
+                    sys.exit(1)
             elif o in ('--existing',):
                 self.update = a or 'param'  # 'param' implies all must exist
                 if self.update not in ('file', 'section', 'param'):
@@ -1208,7 +1214,10 @@ Options:
                     self.command_get()
 
             if self.mode != '--get':
-                if self.removed_section:
+                tidy = 'tidy' in self.iniopt \
+                  or (self.removed_section and 'notidy' not in self.iniopt)
+
+                if tidy:
                     iniparse.tidy(self.conf)
 
                 # XXX: Ideally we should just do conf.write(f) here, but to
@@ -1245,10 +1254,8 @@ Options:
                     else:
                         str_data = str_data.replace(default_sect, '', 1)
 
-                # Remove extraneous blanks added by iniparse.
-                # Note iniparse also has a tidy() function to do globally,
-                # and this is called in the case we've removed a section.
-                if not self.removed_section:
+                # Remove extraneous blanks iniparse adds when adding sections
+                if not tidy:
                     for section in self.ini_section_blanks:
                         section_ = '\n[%s]\n' % section
                         str_data = str_data.replace(section_, section_[1:], 1)
