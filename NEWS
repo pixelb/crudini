@@ -13,6 +13,9 @@ crudini NEWS                                    -*- outline -*-
   Support automatically removing extraneous blank lines in the whole file
   with --ini-options=tidy.
 
+  Support creating a section called "default".  Previously this
+  would have been disallowed, with an invalid section name error.
+
 
 * Noteworthy changes in release 0.9.5 (2023-10-04)
 

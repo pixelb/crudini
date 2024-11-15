@@ -439,6 +439,7 @@ class Crudini():
     data = None
     conf = None
     added_default_section = False
+    default_adjust = False
     removed_section = False
     ini_section_blanks = []
     _print = None
@@ -993,12 +994,21 @@ Options:
             if self.mode == "--del":
                 return
             else:
+                # Adjust to allow adding a "default" section (issue #80)
+                skip_section_add = False
+                if section.lower() == "default":
+                    section = "crudini_default_adjust_%s" % section
+                    self.default_adjust = True
+                    if self.conf.has_section(section):  # We already added
+                        skip_section_add = True
+
                 # Note this always adds a '\n' before the section name
                 # resulting in double spaced sections or blank line at
                 # the start of a new file to which a new section is added.
                 # List the sections here to adjust when writing.
-                self.ini_section_blanks.append(section)
-                self.conf.add_section(section)
+                if not skip_section_add:
+                    self.ini_section_blanks.append(section)
+                    self.conf.add_section(section)
 
         if param is not None:
             try:
@@ -1253,6 +1263,10 @@ Options:
                         str_data = str_data[len(default_sect) + 1:]
                     else:
                         str_data = str_data.replace(default_sect, '', 1)
+
+                # Handle creation of non special "default" section
+                if self.default_adjust:
+                    str_data = str_data.replace('crudini_default_adjust_', '')
 
                 # Remove extraneous blanks iniparse adds when adding sections
                 if not tidy:

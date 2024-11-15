@@ -693,3 +693,14 @@ printf '\n[%s]\n' 1 2 > good.conf
 crudini --del --ini-options=tidy file.conf no op
 diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
+
+# Test creation of a "default" section
+printf '[%s]\n' 'default' > good.conf
+crudini --set file.conf default # new
+diff -u good.conf file.conf && ok || fail
+crudini --set file.conf default # existing
+diff -u good.conf file.conf && ok || fail
+rm file.conf
+crudini --set file.conf default --set file.conf default # double new
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
