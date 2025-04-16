@@ -698,13 +698,6 @@ for i in 1 2; do crudini --del file.conf $i; crudini --set file.conf $i; done
 diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
 
-# Test tidy() functionality
-printf '\n[%s]\n\n' 1 2 > file.conf
-printf '\n[%s]\n' 1 2 > good.conf
-crudini --del --ini-options=tidy file.conf no op
-diff -u good.conf file.conf && ok || fail
-rm file.conf good.conf
-
 # Test creation of a "default" section
 printf '[%s]\n' 'default' > good.conf
 crudini --set file.conf default # new

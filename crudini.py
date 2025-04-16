@@ -630,8 +630,6 @@ Options:
                        'nospace': use format name=value not name = value
                        'space': ensure name = value format
                        'ignoreindent': ignore leading whitespace
-                       'tidy': remove extraneous empty lines in file
-                       'notidy': disable auto tidy enabled with --del section
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.
@@ -737,15 +735,11 @@ Options:
             elif o in ('--ini-options',):
                 self.iniopt = a.split(',')
                 for opt in self.iniopt:
-                    if opt not in ('', 'nospace', 'space', 'ignoreindent',
-                                   'tidy', 'notidy'):
+                    if opt not in ('', 'nospace', 'space', 'ignoreindent'):
                         error('--ini-options not recognized: %s' % opt)
                         self.usage(1)
                 if 'nospace' in self.iniopt and 'space' in self.iniopt:
                     error('--ini-options=space,nospace are mutually exclusive')
-                    sys.exit(1)
-                if 'tidy' in self.iniopt and 'notidy' in self.iniopt:
-                    error('--ini-options=tidy,notidy are mutually exclusive')
                     sys.exit(1)
             elif o in ('--existing',):
                 self.update = a or 'param'  # 'param' implies all must exist
@@ -1232,10 +1226,9 @@ Options:
                     self.command_get()
 
             if self.mode != '--get':
-                tidy = 'tidy' in self.iniopt \
-                  or (self.removed_section and 'notidy' not in self.iniopt)
-
-                if tidy:
+                # Del possible extraneous blank line left with removed section
+                # XXX: This may collapse existing multiple blank lines
+                if self.removed_section:
                     iniparse.tidy(self.conf)
 
                 # XXX: Ideally we should just do conf.write(f) here, but to
@@ -1277,10 +1270,9 @@ Options:
                     str_data = str_data.replace('crudini_default_adjust_', '')
 
                 # Remove extraneous blanks iniparse adds when adding sections
-                if not tidy:
-                    for section in self.ini_section_blanks:
-                        section_ = '\n[%s]\n' % section
-                        str_data = str_data.replace(section_, section_[1:], 1)
+                for section in self.ini_section_blanks:
+                    section_ = '\n[%s]\n' % section
+                    str_data = str_data.replace(section_, section_[1:], 1)
 
                 if self.windows_eol:
                     # iniparse uses '\n' for new/updated items
