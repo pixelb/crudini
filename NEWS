@@ -16,6 +16,10 @@ crudini NEWS                                    -*- outline -*-
   Support creating a section called "default".  Previously this
   would have been disallowed, with an invalid section name error.
 
+  Support ensuring a single space in all 'name = value' entries in the file
+  with --ini-options=space.  This is symmetric and opposite to the existing
+  --ini-options=nospace option.
+
 
 * Noteworthy changes in release 0.9.5 (2023-10-04)
 

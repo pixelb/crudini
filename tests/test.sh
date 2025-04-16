@@ -546,6 +546,10 @@ test "$(crudini --output=- --set noequals.ini noequals param1 '' \
 test "$(crudini --ini-options=nospace --output=- --set noequals.ini \
         noequals param1 value1 \
         | grep param1)" = 'param1=value1' && ok || fail
+#  Ensure correct spacing with --ini-options=space
+test "$(crudini --ini-options=space --output=- --set noequals.ini \
+        noequals param1 value1 \
+        | grep param1)" = 'param1 = value1' && ok || fail
 
 # Test can read windows format files
 printf '%s\r\n' '' 'empty' 'param=value' > test.ini
@@ -575,6 +579,13 @@ diff -u <(crudini --output=- --ini-options=nospace \
 diff -u <(crudini --output=- --ini-options=nospace \
           --set nospace-in.ini '' new val) \
         nospace-out.ini && ok || fail
+# Test --ini-options=space
+diff -u <(crudini --output=- --ini-options=space \
+          --set space-out.ini '' new val) \
+        space-out.ini && ok || fail
+# - Mixed space / nospace not allowed
+crudini --get file.conf '' param1 --ini-options=space,nospace \
+        2>/dev/null && fail || ok
 
 # Test multi operation
 # - Multiple set

@@ -152,6 +152,10 @@ class CrudiniInputFilter():
                 # But if need to remove the spacing, then should for all params
 
                 line = self.delimiter_spacing.sub(r'\1\2\3', line)
+            elif not section and 'space' in self.iniopt:
+                # Convert _all_ existing params. New params will be correct
+
+                line = self.delimiter_spacing.sub(r'\1 \2 \3', line)
 
             if line[0] in ' \t':
                 self.indented = True
@@ -624,6 +628,7 @@ Options:
                        Formats are 'sh','ini','lines'
   --ini-options=OPT  Set options for handling ini files.  Options are:
                        'nospace': use format name=value not name = value
+                       'space': ensure name = value format
                        'ignoreindent': ignore leading whitespace
                        'tidy': remove extraneous empty lines in file
                        'notidy': disable auto tidy enabled with --del section
@@ -732,10 +737,13 @@ Options:
             elif o in ('--ini-options',):
                 self.iniopt = a.split(',')
                 for opt in self.iniopt:
-                    if opt not in ('', 'nospace', 'ignoreindent',
+                    if opt not in ('', 'nospace', 'space', 'ignoreindent',
                                    'tidy', 'notidy'):
                         error('--ini-options not recognized: %s' % opt)
                         self.usage(1)
+                if 'nospace' in self.iniopt and 'space' in self.iniopt:
+                    error('--ini-options=space,nospace are mutually exclusive')
+                    sys.exit(1)
                 if 'tidy' in self.iniopt and 'notidy' in self.iniopt:
                     error('--ini-options=tidy,notidy are mutually exclusive')
                     sys.exit(1)
