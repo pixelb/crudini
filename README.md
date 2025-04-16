@@ -24,9 +24,9 @@ Multiple --set|--del|--get operations for a config_file can be specified.
                        Formats are 'sh','ini','lines'
   --ini-options=OPT  Set options for handling ini files.  Options are:
                        'nospace': use format name=value not name = value
+                       'space': ensure name = value format
+                       'sectionspace': ensure single blank line between sections
                        'ignoreindent': ignore leading whitespace
-                       'tidy': remove extraneous empty lines in file
-                       'notidy': disable auto tidy enabled with --del section
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
                        than the default replacement method.
@@ -101,6 +101,10 @@ Multiple --set|--del|--get operations for a config_file can be specified.
 
 # Add/Update a var, ensuring complete file in name=value format
   crudini --ini-options=nospace --set config_file section parameter value
+
+# Rewrite ini file to ensure a single blank line between sections,
+# and no leading or trailing blank lines
+  crudini --ini-options=sectionspace --set config_file ""
 
 # Read indented ini file, like .gitconfig
   crudini --ini-options=ignoreindent --format=lines --get ~/.gitconfig
