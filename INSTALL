@@ -23,3 +23,10 @@ package manager, and installing will also ensure the iniparse
 dependency is appropriately installed on your system.
 You can also download and run the single crudini.py file directly
 to use latest version.
+
+On any system you should be able to pip install
+the latest code from github like:
+
+```
+pip install git+https://github.com/pixelb/crudini.git#egg=crudini
+```
