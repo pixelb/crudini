@@ -629,7 +629,7 @@ Options:
   --ini-options=OPT  Set options for handling ini files.  Options are:
                        'nospace': use format name=value not name = value
                        'space': ensure name = value format
-                       'sectionspace': ensure single blank line between sections
+                       'sectionspace': ensure one blank line between sections
                        'ignoreindent': ignore leading whitespace
   --inplace          Lock and write files in place.
                        This is not atomic but has less restrictions
@@ -1275,10 +1275,10 @@ Options:
                 if 'sectionspace' in self.iniopt:
                     # Ensure a single blank line before sections
                     str_data = re.sub(r'\n*(\[[^\]]+\])', r'\n\n\1', str_data)
-                    str_data = str_data.lstrip('\n')  # remove any leading newlines
-                    str_data = str_data.rstrip('\n') + '\n'  # ensure single newline at end
+                    str_data = str_data.lstrip('\n')  # remove leading \n
+                    str_data = str_data.rstrip('\n') + '\n'  # ensure \n at end
                 else:
-                    # Remove extraneous blanks iniparse adds when adding sections
+                    # Remove extraneous blanks iniparse adds when adding sects
                     for section in self.ini_section_blanks:
                         section_ = '\n[%s]\n' % section
                         str_data = str_data.replace(section_, section_[1:], 1)
