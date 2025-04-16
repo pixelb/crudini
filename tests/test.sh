@@ -692,9 +692,17 @@ diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
 
 # Test removal of extraneous empty lines
+# implicitly enabled with --del
 printf '\n[%s]\n' 1 2 > good.conf
 cp good.conf file.conf
 for i in 1 2; do crudini --del file.conf $i; crudini --set file.conf $i; done
+diff -u good.conf file.conf && ok || fail
+rm file.conf good.conf
+
+# Test addition/removal of empty lines with sectionspace
+printf '\n[%s]\n[%s]\n\n[%s]\n\n\n[%s]\n\n' 1 2 3 4 > file.conf
+printf '[%s]\n\n[%s]\n\n[%s]\n\n[%s]\n' 1 2 3 4 > good.conf
+crudini --set --ini-options=sectionspace file.conf ''
 diff -u good.conf file.conf && ok || fail
 rm file.conf good.conf
 

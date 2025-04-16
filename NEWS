@@ -16,6 +16,9 @@ crudini NEWS                                    -*- outline -*-
   with --ini-options=space.  This is symmetric and opposite to the existing
   --ini-options=nospace option.
 
+  Support ensuring a single blank line between sections, and no blank lines
+  at the start or end of the file, with --ini-options=sectionspace.
+
 
 * Noteworthy changes in release 0.9.5 (2023-10-04)
 
